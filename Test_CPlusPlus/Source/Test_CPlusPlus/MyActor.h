@@ -23,7 +23,6 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-
 private:
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* Mesh;
@@ -34,4 +33,6 @@ private:
 	UPROPERTY(VisibleAnyWhere, Category = BattleStat)
 	int32 Mp;
 
+	UPROPERTY(EditAnywhere, Category = BattleStat);
+	float RotateSpeed = 30.0f;
 };

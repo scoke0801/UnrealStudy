@@ -2,6 +2,7 @@
 
 
 #include "MyActor.h"
+
 // Sets default values
 AMyActor::AMyActor()
 {
@@ -14,20 +15,24 @@ AMyActor::AMyActor()
 	if (SM.Succeeded()) {
 		Mesh->SetStaticMesh(SM.Object);
 	}
-	
 }
 
 // Called when the game starts or when spawned
 void AMyActor::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
+	// 카테고리, 로깅 수준, 형식 문자열, 형식 인자
+	UE_LOG(LogTemp, Warning, TEXT("BeginPlay"));
 }
 
 // Called every frame
 void AMyActor::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	
 
+	// Pitch Yaw roll ==>( Y, Z, X )
+	AddActorLocalRotation(FRotator(0.f, RotateSpeed * DeltaTime, 0.f));
 }
 
