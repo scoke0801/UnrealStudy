@@ -5,6 +5,14 @@
 #include "GameFramework/Character.h"
 #include "GameFramework/PawnMovementComponent.h"
 
+UMyAnimInstance::UMyAnimInstance()
+{
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> AM(TEXT("/Script/Engine.AnimMontage'/Game/Animations/Revenant_Skeleton_Montage.Revenant_Skeleton_Montage'"));
+	if (AM.Succeeded()) {
+		AttackMontage = AM.Object;
+	}
+}
+
 void UMyAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 {
 	Super::NativeUpdateAnimation(DeltaSeconds);
@@ -17,5 +25,12 @@ void UMyAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 		if (Character) {
 			IsFalling = Character->GetMovementComponent()->IsFalling();
 		}
+	}
+}
+
+void UMyAnimInstance::PlayAttackMontage()
+{
+	if (!Montage_IsPlaying(AttackMontage)) {
+		Montage_Play(AttackMontage, 1.f);
 	}
 }
