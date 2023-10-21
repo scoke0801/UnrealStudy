@@ -65,11 +65,13 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 void AMyCharacter::UpDown(float Value)
 {
 	AddMovementInput(GetActorForwardVector(), Value);
+	UpDownValue = Value;
 }
 
 void AMyCharacter::LeftRight(float Value)
 {
 	AddMovementInput(GetActorRightVector(), Value);
+	LeftRightValue = Value;
 }
 
 void AMyCharacter::Yaw(float Value)
