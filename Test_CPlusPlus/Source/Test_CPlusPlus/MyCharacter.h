@@ -32,6 +32,8 @@ public:
 
 	void Attack();
 
+	UFUNCTION()
+	void OnAttackMontageEnded(UAnimMontage* Montage, bool bInterrupted);
 private:
 	UPROPERTY(VisibleAnywhere)
 	class USpringArmComponent* SpringArm;
@@ -39,4 +41,9 @@ private:
 	UPROPERTY(VisibleAnywhere)
 	class UCameraComponent* Camera;
 
+	UPROPERTY()
+	class UMyAnimInstance* AnimInstance;
+
+	UPROPERTY(VisibleAnywhere)
+	bool IsAttacking = false;
 };
