@@ -39,14 +39,14 @@ void AMyCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
-	FName WeaponSocket(TEXT("hand_l_socket"));
+	FName WeaponSocket(TEXT("hand_r_socket"));
 	auto CurrentWeapon = GetWorld()->SpawnActor<AMyWeapon>(FVector::ZeroVector, FRotator::ZeroRotator);
 
 	if (CurrentWeapon)
 	{
-		CurrentWeapon->AttachToComponent(GetMesh(),
-			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-			WeaponSocket);
+		//CurrentWeapon->AttachToComponent(GetMesh(),
+		//	FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+		//	WeaponSocket);
 	}
 }
 
