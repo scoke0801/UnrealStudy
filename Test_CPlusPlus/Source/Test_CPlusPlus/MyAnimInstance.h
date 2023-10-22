@@ -6,6 +6,8 @@
 #include "Animation/AnimInstance.h"
 #include "MyAnimInstance.generated.h"
 
+DECLARE_MULTICAST_DELEGATE(FOnAttackHit)
+
 /**
  * 
  */
@@ -46,4 +48,6 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Pawn, Meta = (AllowPrivateAccess = true))
 	float Vertical;
 
+public:
+	FOnAttackHit OnAttackHit;
 };
