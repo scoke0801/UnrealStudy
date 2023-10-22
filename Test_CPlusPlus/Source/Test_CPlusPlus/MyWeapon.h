@@ -35,4 +35,5 @@ public:
 
 	UPROPERTY(VisibleAnywhere)
 	class UBoxComponent* Trigger;
+
 };
