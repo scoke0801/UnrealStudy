@@ -56,16 +56,23 @@ void UMyStatComponent::SetLevel(int32 NewLevel)
 		if (StatData)
 		{
 			Level = StatData->Level;
-			Hp = StatData->MaxHp;
+			SetHp(StatData->MaxHp);
+			MaxHp = StatData->MaxHp;
 			Attack = StatData->Attack;
 		}
 	}
 }
 
+void UMyStatComponent::SetHp(int32 NewHp)
+{
+	Hp = std::max(0, NewHp);
+
+	OnHpChanged.Broadcast();
+}
+
 void UMyStatComponent::OnAttacked(float DamageAmount)
 {
-	Hp = std::max(0.f, Hp - DamageAmount);
-
-	UE_LOG(LogTemp, Warning, TEXT("OnAttacked: %d"), Hp);
+	int32 NewHp = Hp - DamageAmount;
+	SetHp(NewHp);
 }
 

@@ -10,6 +10,8 @@
 #include "MyWeapon.h"
 #include "MyStatComponent.h"
 #include "Engine/DamageEvents.h"
+#include "Components/WidgetComponent.h"
+#include "MyHpWidget.h"
 
 // Sets default values
 AMyCharacter::AMyCharacter()
@@ -36,6 +38,22 @@ AMyCharacter::AMyCharacter()
 	}
 
 	Stat = CreateDefaultSubobject<UMyStatComponent>(TEXT("STAT"));
+
+	HpBar = CreateDefaultSubobject<UWidgetComponent>(TEXT("HPBAR"));
+	HpBar->SetupAttachment(GetMesh());
+	HpBar->SetWidgetSpace(EWidgetSpace::Screen);
+	HpBar->SetRelativeLocation(FVector(0.0f, 0.f, 200.f));
+
+	static ConstructorHelpers::FClassFinder<UUserWidget> UW(TEXT("/Script/UMGEditor.WidgetBlueprint'/Game/UI/wbp_HpBar.wbp_HpBar_C'"));
+	if (UW.Succeeded())
+	{
+		HpBar->SetWidgetClass(UW.Class);
+		HpBar->SetDrawSize(FVector2D(200.0f, 50.0f));
+		UE_LOG(LogTemp, Log, TEXT("Succ"));
+	}
+	else {
+		UE_LOG(LogTemp, Log, TEXT("Fail"));
+	}
 }
 
 // Called when the game starts or when spawned
@@ -56,6 +74,14 @@ void AMyCharacter::PostInitializeComponents()
 	{
 		AnimInstance->OnMontageEnded.AddDynamic(this, &AMyCharacter::OnAttackMontageEnded);
 		AnimInstance->OnAttackHit.AddUObject(this, &AMyCharacter::AttackCheck);
+	}
+
+	HpBar->InitWidget();
+
+	auto HpWidget = Cast<UMyHpWidget>(HpBar->GetUserWidgetObject());
+	if (HpWidget) 
+	{
+		HpWidget->BindHp(Stat);
 	}
 }
 
