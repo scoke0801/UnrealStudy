@@ -26,4 +26,10 @@ private:
 private:
 	// 예약한 작업을 취소하고 싶을 때 사용
 	FTimerHandle TimerHandle;
+
+	UPROPERTY()
+	class UBehaviorTree* BehaviorTree;
+
+	UPROPERTY()
+	class UBlackboardData* BloackboardData;
 };
