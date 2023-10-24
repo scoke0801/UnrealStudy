@@ -12,6 +12,7 @@
 #include "Engine/DamageEvents.h"
 #include "Components/WidgetComponent.h"
 #include "MyHpWidget.h"
+#include "MyAIController.h"
 
 // Sets default values
 AMyCharacter::AMyCharacter()
@@ -54,6 +55,12 @@ AMyCharacter::AMyCharacter()
 	else {
 		UE_LOG(LogTemp, Log, TEXT("Fail"));
 	}
+
+	// AI를 사용할 때 클래스는 해당 클래스를 사용하도록.
+	AIControllerClass = AMyAIController::StaticClass();
+
+	// AI가 어떤 상황에서 소유를 할지.PlacedInWorldOrSpawned:: => 월드에 배치되었거나 스폰되었을 때.
+	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
 }
 
 // Called when the game starts or when spawned
