@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
 #include "ArenaBattle.h"
 #include "GameFramework/Pawn.h"
+#include "GameFramework/FloatingPawnMovement.h"
 #include "ABPawn.generated.h"
 
 UCLASS()
@@ -23,28 +23,26 @@ protected:
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
+	virtual void PostInitializeComponents() override;
+	virtual void PossessedBy(AController* NewController) override;
 
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-	virtual void PostInitializeComponents() override;
-	virtual void PossessedBy(AController* NewController) override;
-
 	UPROPERTY(VisibleAnywhere, Category = Collision)
-	class UCapsuleComponent* Capsule;
-
-	UPROPERTY(VisibleAnywhere, Category =  Visual)
-	class USkeletalMeshComponent* Mesh;
+	UCapsuleComponent* Capsule;
+	
+	UPROPERTY(VisibleAnywhere, Category = Visual)
+	USkeletalMeshComponent* Mesh;
 
 	UPROPERTY(VisibleAnywhere, Category = Movement)
-	class UFloatingPawnMovement* Movement;
+	UFloatingPawnMovement* Movement;
 
 	UPROPERTY(VisibleAnywhere, Category = Camera)
-	class USpringArmComponent* SpringArm; 
+	USpringArmComponent* SpringArm;
 
 	UPROPERTY(VisibleAnywhere, Category = Camera)
-	class UCameraComponent* Camera;
-
+	UCameraComponent* Camera;
 
 private:
 	void UpDown(float NewAxisValue);
