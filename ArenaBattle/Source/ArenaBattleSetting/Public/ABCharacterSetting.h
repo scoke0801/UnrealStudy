@@ -9,9 +9,13 @@
 /**
  * 
  */
-UCLASS()
+UCLASS(config=ArenaBattle)
 class ARENABATTLESETTING_API UABCharacterSetting : public UObject
 {
 	GENERATED_BODY()
-	
+public:
+	UABCharacterSetting();
+
+	UPROPERTY(config)
+	TArray<FSoftObjectPath	> CharacterAssets;
 };
