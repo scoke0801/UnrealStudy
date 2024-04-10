@@ -19,7 +19,8 @@
 			"AdditionalDependencies": [
 				"Engine",
 				"AIModule",
-				"ArenaBattleSetting"
+				"ArenaBattleSetting",
+				"UMG"
 			]
 		}
 	]
