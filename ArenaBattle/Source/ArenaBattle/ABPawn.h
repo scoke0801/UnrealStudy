@@ -30,19 +30,19 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	UPROPERTY(VisibleAnywhere, Category = Collision)
-	UCapsuleComponent* Capsule;
+	class UCapsuleComponent* Capsule;
 	
 	UPROPERTY(VisibleAnywhere, Category = Visual)
-	USkeletalMeshComponent* Mesh;
+	class USkeletalMeshComponent* Mesh;
 
 	UPROPERTY(VisibleAnywhere, Category = Movement)
-	UFloatingPawnMovement* Movement;
+	class UFloatingPawnMovement* Movement;
 
 	UPROPERTY(VisibleAnywhere, Category = Camera)
-	USpringArmComponent* SpringArm;
+	class USpringArmComponent* SpringArm;
 
 	UPROPERTY(VisibleAnywhere, Category = Camera)
-	UCameraComponent* Camera;
+	class UCameraComponent* Camera;
 
 private:
 	void UpDown(float NewAxisValue);

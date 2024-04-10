@@ -1,6 +1,8 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "ABAnimInstance.h"
+#include "GameFramework/PawnMovementComponent.h"
+#include "GameFramework/Character.h"
 
 UABAnimInstance::UABAnimInstance()
 {
