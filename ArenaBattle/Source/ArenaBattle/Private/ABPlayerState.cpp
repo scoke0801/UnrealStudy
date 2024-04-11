@@ -2,15 +2,19 @@
 
 
 #include "ABPlayerState.h"
-
-
 #include "ABGameInstance.h"
+#include "ABSaveGame.h"
+#include "Kismet/GameplayStatics.h"
 
 AABPlayerState::AABPlayerState()
 {
 	CharacterLevel = 1;
 	GameScore = 0;
 	Exp = 0;
+	GameHighScore = 0;
+	CharacterIndex = 0;
+
+	SaveSlotName = TEXT("Player1");
 }
 
 int32 AABPlayerState::GetGameScore() const
@@ -25,10 +29,35 @@ int32 AABPlayerState::GetCharacterLevel() const
 
 void AABPlayerState::InitPlayerData()
 {
-	SetPlayerName(TEXT("Destiny"));
-	SetCharacterLevel(5);
+	auto ABSaveGame = Cast<UABSaveGame>(UGameplayStatics::LoadGameFromSlot(SaveSlotName, 0));
+	if (ABSaveGame == nullptr)
+	{
+		ABSaveGame = GetMutableDefault<UABSaveGame>();
+	}
+
+	SetPlayerName(ABSaveGame->PlayerName);
+	SetCharacterLevel(ABSaveGame->Level);
+	GameHighScore = ABSaveGame->HighScore;
 	GameScore = 0;
-	Exp = 0;
+	Exp = ABSaveGame->Exp;
+	CharacterIndex = ABSaveGame->CharacterIndex;
+
+	SavePlayerData();
+}
+
+void AABPlayerState::SavePlayerData()
+{
+	UABSaveGame* NewPlayerData = NewObject<UABSaveGame>();
+	NewPlayerData->PlayerName = GetPlayerName();
+	NewPlayerData->Level = CharacterLevel;
+	NewPlayerData->Exp = Exp;
+	NewPlayerData->HighScore = GameHighScore;
+	NewPlayerData->CharacterIndex = CharacterIndex;
+
+	if (!UGameplayStatics::SaveGameToSlot(NewPlayerData, SaveSlotName, 0))
+	{
+		ABLOG(Error, TEXT("SaveGame Error"));
+	}
 }
 
 float AABPlayerState::GetExpRatio() const
@@ -39,6 +68,16 @@ float AABPlayerState::GetExpRatio() const
 	float Result = (float)Exp / (float)CurrentStatData->NextExp;
 	ABLOG(Warning, TEXT("Ratio : %f, Current : %d, Next : %d"), Result, Exp, CurrentStatData->NextExp);
 	return Result;
+}
+
+int32 AABPlayerState::GetGameHighScore() const
+{
+	return GameHighScore;
+}
+
+int32 AABPlayerState::GetCharacterIndex() const
+{
+	return CharacterIndex;
 }
 
 bool AABPlayerState::AddExp(int32 IncomeExp)
@@ -56,13 +95,18 @@ bool AABPlayerState::AddExp(int32 IncomeExp)
 	}
 
 	OnPlayerStateChanged.Broadcast();
+	SavePlayerData();
 	return DidLevelUp;
 }
 
 void AABPlayerState::AddGameScore()
 {
 	GameScore++;
+	
+	GameHighScore = std::max(GameHighScore, GameScore);
 	OnPlayerStateChanged.Broadcast();
+
+	SavePlayerData();
 }
 
 void AABPlayerState::SetCharacterLevel(int32 NewCharacterLevel)
