@@ -19,6 +19,7 @@
 #include "ABPlayerState.h"
 #include "ABHUDWidget.h"
 #include "ABGameMode.h"
+#include "ABSection.h"
 
 // Sets default values
 AABCharacter::AABCharacter()
@@ -129,6 +130,7 @@ void AABCharacter::SetCharacterState(ECharacterState NewState)
 		SetCanBeDamaged(true);
 
 		CharacterStat->OnHPIsZero.AddLambda([this]() -> void {
+			ABLOG(Warning, TEXT("OnHPIsZero"));
 			SetCharacterState(ECharacterState::DEAD);
 			});
 
@@ -165,7 +167,7 @@ void AABCharacter::SetCharacterState(ECharacterState NewState)
 		}
 		else
 		{
-			ABAIController->StopAI();
+			ABAIController->StopAI(); 
 		}
 
 		GetWorld()->GetTimerManager().SetTimer(DeadTimerHandle, FTimerDelegate::CreateLambda([this]() -> void {
@@ -404,6 +406,11 @@ void AABCharacter::SetWeapon(AABWeapon * NewWeapon)
 		NewWeapon->SetOwner(this);
 		CurrentWeapon = NewWeapon;
 	}
+}
+
+void AABCharacter::SetSection(TWeakObjectPtr<class AABSection> Section)
+{
+	this->Section = Section;
 }
 
 void AABCharacter::UpDown(float NewAxisValue)

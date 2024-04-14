@@ -58,6 +58,8 @@ public:
 	bool CanSetWeapon();
 	void SetWeapon(class AABWeapon* NewWeapon);
 
+	void SetSection(TWeakObjectPtr<class AABSection> Section);
+
 	UPROPERTY(VisibleAnywhere, Category = Weapon)
 	class AABWeapon* CurrentWeapon;
 
@@ -136,6 +138,8 @@ private:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = State, Meta = (AllowPrivateAccess = true))
 	float DeadTimer;
+
+	TWeakObjectPtr<class AABSection> Section;
 
 	FTimerHandle DeadTimerHandle = { };
 };
