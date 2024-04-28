@@ -5,6 +5,9 @@
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameObject/Player/MMCharacterControlData.h"
+#include "Engine/DataTable.h"
+#include "GameData/MMCharacterStat.h"
+#include "Algo/Transform.h"
 
 // Sets default values
 AMMCharacterBase::AMMCharacterBase()
@@ -41,16 +44,46 @@ AMMCharacterBase::AMMCharacterBase()
 		GetMesh()->SetSkeletalMesh(characterMeshRef.Object);
 	}
 
-	static ConstructorHelpers::FClassFinder<UAnimInstance> animInstanceRef(TEXT("/Game/External/Mannequin/Animations/ThirdPerson_AnimBP.ThirdPerson_AnimBP_C"));
+	static ConstructorHelpers::FClassFinder<UAnimInstance> animInstanceRef(TEXT("/Game/Blueprint/Animation/ABP_MMCharacter.ABP_MMCharacter_C"));
 	if (animInstanceRef.Succeeded())
 	{
 		GetMesh()->SetAnimInstanceClass(animInstanceRef.Class);
 	}
-
 	static ConstructorHelpers::FObjectFinder<UMMCharacterControlData> ShoulderDataRef(TEXT("MMCharacterControlData'/Game/Data/CharacterData/MMC_Sholuder.MMC_Sholuder'"));
 	if (ShoulderDataRef.Object)
 	{
 		_characterControlData.Add(ECharacterControlType::Shoulder, ShoulderDataRef.Object);
+	}
+
+	TArray< FMMCharacterStat*> ValueArray;
+	TArray<FMMCharacterStat> CharacterStatTable;
+	static ConstructorHelpers::FObjectFinder<UDataTable> DataTableRef(TEXT("/Game/Data/CharacterData/MMCharacterStatTable.MMCharacterStatTable"));
+	if (nullptr != DataTableRef.Object)
+	{
+		const UDataTable* DataTablePtr = DataTableRef.Object;
+		check(DataTablePtr->GetRowMap().Num() > 0);
+		 
+		TArray<FName> RowNames = DataTablePtr->GetRowNames();
+		for (int i = 0; i < DataTablePtr->GetRowMap().Num(); ++i)
+		{
+			FMMCharacterStat* stat = DataTablePtr->FindRow<FMMCharacterStat>(RowNames[i], TEXT(""));
+			ValueArray.Push(stat);
+		}  
+	}
+
+	if (nullptr != DataTableRef.Object)
+	{
+		const UDataTable* DataTablePtr = DataTableRef.Object;
+		check(DataTablePtr->GetRowMap().Num() > 0);
+
+		TArray<uint8*> innerValueArray;
+		DataTablePtr->GetRowMap().GenerateValueArray(innerValueArray);
+		Algo::Transform(innerValueArray, CharacterStatTable,
+			[](uint8* Value)
+			{
+				return *reinterpret_cast<FMMCharacterStat*>(Value);
+			}
+		);
 	}
 }
 
