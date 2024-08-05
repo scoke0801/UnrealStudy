@@ -84,3 +84,5 @@
 **/Model
 **/Content/__ExternalObjects__
 **/Content/__ExternalActors__
+
+**/.env
