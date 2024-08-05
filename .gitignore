@@ -120,3 +120,6 @@ Test_CPlusPlus/Content/Character/Erica/phong1.uasset
 Test_CPlusPlus/Content/Level/BP_JHTestGameMode.uasset
 Test_CPlusPlus/Content/Maps/DefaultMap.umap
 Test_CPlusPlus/Content/Maps/JHTestMap.umap
+**/Model
+**/Content/__ExternalObjects__
+**/Content/__ExternalActors__
