@@ -1,13 +1,16 @@
 {
 	"FileVersion": 3,
-	"EngineAssociation": "5.3",
+	"EngineAssociation": "5.4",
 	"Category": "",
 	"Description": "",
 	"Modules": [
 		{
 			"Name": "CombatWareHouse",
 			"Type": "Runtime",
-			"LoadingPhase": "Default"
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"Engine"
+			]
 		}
 	],
 	"Plugins": [
