@@ -4,6 +4,7 @@
 #include "BasicTest/Character/CWCharacterBase.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "CWCharacterControlData.h"
 
 // Sets default values
 ACWCharacterBase::ACWCharacterBase()
@@ -42,5 +43,27 @@ ACWCharacterBase::ACWCharacterBase()
 	{
 		GetMesh()->SetAnimInstanceClass(AnimInstanceClassRef.Class);
 	}
+
+	static ConstructorHelpers::FObjectFinder<UCWCharacterControlData> ShoulderDataRef(TEXT("/Script/CombatWareHouse.CWCharacterControlData'/Game/CharacterControl/DA_CharacterControlShoulder.DA_CharacterControlShoulder'"));
+	if (ShoulderDataRef.Object)
+	{
+		CharacterControlManager.Add(ECharacterControlType::Shoulder, ShoulderDataRef.Object);
+	}
+
+	static ConstructorHelpers::FObjectFinder<UCWCharacterControlData> QuaterDataRef(TEXT("/Script/CombatWareHouse.CWCharacterControlData'/Game/CharacterControl/DA_CharacterControlQuater.DA_CharacterControlQuater'"));
+	if (QuaterDataRef.Object)
+	{
+		CharacterControlManager.Add(ECharacterControlType::Quater, QuaterDataRef.Object);
+	}
 }
  
+void ACWCharacterBase::SetCharacterControlData(const UCWCharacterControlData* CharacterControlData)
+{
+	// Pawn
+	bUseControllerRotationYaw = CharacterControlData->bUseControllerRotationYaw;
+
+	// CharacterMovement
+	GetCharacterMovement()->bOrientRotationToMovement = CharacterControlData->bOrientRotationToMovement;
+	GetCharacterMovement()->bUseControllerDesiredRotation = CharacterControlData->bUseControllerDesiredRotation;
+	GetCharacterMovement()->RotationRate = CharacterControlData->RotationRate;
+}
