@@ -39,6 +39,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputAction> QuaterMoveAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UInputAction> AttackAction;
+
 	ECharacterControlType CurrentCharacterControlType;
 
 	// Camera Section
@@ -67,4 +70,6 @@ protected:
 	void ShoulderLook(const FInputActionValue& Value);
 
 	void QuaterMove(const FInputActionValue& Value);
+
+	void Attack();
 };

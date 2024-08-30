@@ -30,7 +30,7 @@ void UCWCharacterAnimInstance::NativeUpdateAnimation(float InDeltaSeconds)
 		_velocity = _movement->Velocity;
 		_groundSpeed = _velocity.Size2D();
 		_bIsIdle = _groundSpeed < _movingThreshold;
-		_bIsJuming = _movement->IsFalling();
-		_bIsFalling = _bIsFalling & (_velocity.Z > _jumpingThreshold);
+		_bIsFalling = _movement->IsFalling();
+		_bIsJumping = _bIsFalling & (_velocity.Z > _jumpingThreshold);
 	}
 }

@@ -6,7 +6,7 @@
 
 ACWGameModeBase::ACWGameModeBase()
 {
-	static ConstructorHelpers::FClassFinder<APawn> DefaultPawnClassRef(TEXT("/Script/CombatWareHouse.CWCharacterPlayer"));
+	static ConstructorHelpers::FClassFinder<APawn> DefaultPawnClassRef(TEXT("/Game/Blueprint/Player/BP_Player.BP_Player_C"));
 	if (DefaultPawnClassRef.Class)
 	{
 		DefaultPawnClass = DefaultPawnClassRef.Class;

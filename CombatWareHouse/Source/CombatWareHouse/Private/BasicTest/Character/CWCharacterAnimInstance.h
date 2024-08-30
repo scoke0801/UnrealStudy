@@ -46,7 +46,7 @@ protected:
 	uint8 _bIsFalling : 1;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Character)
-	uint8 _bIsJuming : 1;
+	uint8 _bIsJumping : 1;
 	
 protected:
 

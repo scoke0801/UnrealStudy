@@ -53,6 +53,11 @@ ACWCharacterPlayer::ACWCharacterPlayer()
 		QuaterMoveAction = InputActionQuaterMoveRef.Object;
 	}
 
+	static ConstructorHelpers::FObjectFinder<UInputAction> InputActionAttackRef(TEXT("/Game/Input/Actions/IA_Attack.IA_Attack"));
+	if (InputActionAttackRef.Object)
+	{
+		AttackAction = InputActionAttackRef.Object;
+	}
 	CurrentCharacterControlType = ECharacterControlType::Quater;
 }
 
@@ -75,6 +80,7 @@ void ACWCharacterPlayer::SetupPlayerInputComponent(class UInputComponent* Player
 	EnhancedInputComponent->BindAction(ShoulderMoveAction, ETriggerEvent::Triggered, this, &ACWCharacterPlayer::ShoulderMove);
 	EnhancedInputComponent->BindAction(ShoulderLookAction, ETriggerEvent::Triggered, this, &ACWCharacterPlayer::ShoulderLook);
 	EnhancedInputComponent->BindAction(QuaterMoveAction, ETriggerEvent::Triggered, this, &ACWCharacterPlayer::QuaterMove);
+	EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &ACWCharacterPlayer::Attack);
 }
 
 void ACWCharacterPlayer::ChangeCharacterControl()
@@ -166,5 +172,10 @@ void ACWCharacterPlayer::QuaterMove(const FInputActionValue& Value)
 	FVector MoveDirection = FVector(MovementVector.X, MovementVector.Y, 0.f);
 	GetController()->SetControlRotation(FRotationMatrix::MakeFromX(MoveDirection).Rotator());
 	AddMovementInput(MoveDirection, MovementVectorSize);
+}
+
+void ACWCharacterPlayer::Attack()
+{
+	ProcessComboCommand(1.0f);
 }
 
