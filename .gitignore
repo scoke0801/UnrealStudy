@@ -75,12 +75,9 @@
 # Cache files for the editor to use
 */DerivedDataCache/*
 
-*/Content/StarterContent/*
-*/Content/ParagonRevenant/*
-*/Content/InfinityBladeWeapons/*
-*/Content/InfinityBladeGrassLands/*
-*/Content/Book/*
-*/Content/InfinityBladeWarriors/*
+*/ExternalAssets/*
+*/Animations/*
+*/Content/*
 **/Model
 **/Content/__ExternalObjects__
 **/Content/__ExternalActors__
