@@ -34,3 +34,9 @@ void UCWCharacterAnimInstance::NativeUpdateAnimation(float InDeltaSeconds)
 		_bIsJumping = _bIsFalling & (_velocity.Z > _jumpingThreshold);
 	}
 }
+
+bool UCWCharacterAnimInstance::IsCanAttack() const
+{
+	// 공중에서는 공격할 수 없도록 막기
+	return (false == _bIsFalling) && (false == _bIsJumping);
+}

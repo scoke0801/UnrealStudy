@@ -53,4 +53,7 @@ protected:
 	virtual void NativeInitializeAnimation() override;
 
 	virtual void NativeUpdateAnimation(float InDeltaSeconds) override;
+
+public:
+	bool IsCanAttack() const;
 };

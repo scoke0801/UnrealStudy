@@ -9,6 +9,7 @@
 #include "CWCharacterControlData.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "CWCharacterAnimInstance.h"
 
 ACWCharacterPlayer::ACWCharacterPlayer()
 {
@@ -176,6 +177,12 @@ void ACWCharacterPlayer::QuaterMove(const FInputActionValue& Value)
 
 void ACWCharacterPlayer::Attack()
 {
-	ProcessComboCommand(1.0f);
+	if (auto AnimInstance = Cast<UCWCharacterAnimInstance>(GetMesh()->GetAnimInstance()))
+	{
+		if (AnimInstance->IsCanAttack())
+		{
+			ProcessComboCommand(1.0f);
+		}
+	}
 }
 

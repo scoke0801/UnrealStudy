@@ -4,12 +4,12 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "BasicTest/Animation/CWAnimationAttackInterface.h"
 #include "CWCharacterBase.generated.h"
 
 class UCWCharacterControlData;
 class UAnimMontage;
 class UCWComboAttackData;
-
 UENUM()
 enum class ECharacterControlType : uint8
 {
@@ -18,7 +18,7 @@ enum class ECharacterControlType : uint8
 };
 
 UCLASS()
-	class ACWCharacterBase : public ACharacter
+	class ACWCharacterBase : public ACharacter, public ICWAnimationAttackInterface
 {
 	GENERATED_BODY()
 
@@ -31,6 +31,12 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Attack, Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UCWComboAttackData> _comboActionData;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Stat, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UAnimMontage> _deadMontage;
+
+protected:
+	float _deadEventDelayTime = 5.0f;
 
 private:
 	int32 _currentCombo = 0;
@@ -52,7 +58,18 @@ protected:
 	void ComboActionBegin();
 	void ComboActionEnd(UAnimMontage* InTargetMontage, bool InIsEnded);
 
+	// Interface
+protected:
+	void AttackHitCheck() override;
+	
+	virtual float TakeDamage(float InDamageAmount, FDamageEvent const& InDamageEvent, AController* InEventInstigator, AActor* InDamageCauser) override;
+
+	virtual void SetDead();
+
 private:
 	void SetComboCheckTimer();
 	void CheckCombo();
+
+	void PlayDeadAnimation();
+
 };
