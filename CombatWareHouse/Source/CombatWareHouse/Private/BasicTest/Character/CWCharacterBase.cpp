@@ -2,18 +2,26 @@
 
 
 #include "BasicTest/Character/CWCharacterBase.h"
-#include "Components/CapsuleComponent.h"
-#include "GameFramework/CharacterMovementComponent.h"
-#include "CWCharacterControlData.h"
-#include "Animation/AnimMontage.h"
 #include "BasicTest/Data/CWComboAttackData.h"
 #include "BasicTest/Physics/CWCollision.h"
-#include "Engine/DamageEvents.h"
-#include "CWCharacterStatComponent.h"
 #include "BasicTest/UI/CWUserWIdgetBase.h"
 #include "BasicTest/UI/CWWidgetComponentBase.h"
-#include "Components/WidgetComponent.h"
 #include "BasicTest/UI/CWUIHpBar.h"
+#include "BasicTest/Data/CWWeaponItemData.h"
+
+#include "CWCharacterControlData.h"
+#include "CWCharacterStatComponent.h"
+
+#include "Components/CapsuleComponent.h"
+#include "Components/WidgetComponent.h"
+
+#include "GameFramework/CharacterMovementComponent.h"
+
+#include "Animation/AnimMontage.h"
+
+#include "Engine/DamageEvents.h"
+
+DEFINE_LOG_CATEGORY(LogCWCharacter);
 
 // Sets default values
 ACWCharacterBase::ACWCharacterBase()
@@ -24,7 +32,7 @@ ACWCharacterBase::ACWCharacterBase()
 	bUseControllerRotationRoll = false;
 
 	// Capsule
-	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
+	GetCapsuleComponent()->InitCapsuleSize(42.f, 92.0f);
 	GetCapsuleComponent()->SetCollisionProfileName(CPROFILE_ABCAPSULE);
 
 	// Movement
@@ -41,37 +49,37 @@ ACWCharacterBase::ACWCharacterBase()
 	GetMesh()->SetAnimationMode(EAnimationMode::AnimationBlueprint);
 	GetMesh()->SetCollisionProfileName(TEXT("NoCollision"));
 
-	static ConstructorHelpers::FObjectFinder<USkeletalMesh> CharacterMeshRef(TEXT("/Game/ExternalAssets/BossyEnemy/SkeletalMesh/SK_Mannequin_UE4_WithWeapon.SK_Mannequin_UE4_WithWeapon"));
+	static ConstructorHelpers::FObjectFinder<USkeletalMesh> CharacterMeshRef(TEXT("/Game/Characters/UEFN_Mannequin/Meshes/SKM_UEFN_Mannequin.SKM_UEFN_Mannequin"));
 	if (CharacterMeshRef.Object)
 	{
 		GetMesh()->SetSkeletalMesh(CharacterMeshRef.Object);
 	}
 
-	static ConstructorHelpers::FClassFinder<UAnimInstance> AnimInstanceClassRef(TEXT("/Game/Animation/Blueprint/ABP_WeaponCharacter.ABP_WeaponCharacter_C"));
+	static ConstructorHelpers::FClassFinder<UAnimInstance> AnimInstanceClassRef(TEXT("/Game/Blueprint/Animation/ABP_BasicCharacter.ABP_BasicCharacter_C"));
 	if (AnimInstanceClassRef.Class)
 	{
 		GetMesh()->SetAnimInstanceClass(AnimInstanceClassRef.Class);
 	}
 
-	static ConstructorHelpers::FObjectFinder<UCWCharacterControlData> ShoulderDataRef(TEXT("/Game/CharacterControl/DA_CharacterControlQuater.DA_CharacterControlQuater"));
+	static ConstructorHelpers::FObjectFinder<UCWCharacterControlData> ShoulderDataRef(TEXT("/Game/Data/CharacterControl/DA_CharacterControlQuater.DA_CharacterControlQuater"));
 	if (ShoulderDataRef.Object)
 	{
 		CharacterControlManager.Add(ECharacterControlType::Shoulder, ShoulderDataRef.Object);
 	}
 
-	static ConstructorHelpers::FObjectFinder<UCWCharacterControlData> QuaterDataRef(TEXT("/Game/CharacterControl/DA_CharacterControlShoulder.DA_CharacterControlShoulder"));
+	static ConstructorHelpers::FObjectFinder<UCWCharacterControlData> QuaterDataRef(TEXT("/Game/Data/CharacterControl/DA_CharacterControlShoulder.DA_CharacterControlShoulder"));
 	if (QuaterDataRef.Object)
 	{
 		CharacterControlManager.Add(ECharacterControlType::Quater, QuaterDataRef.Object);
 	}
 
-	static ConstructorHelpers::FObjectFinder<UAnimMontage> ComboActionMontageRef(TEXT("/Script/Engine.AnimMontage'/Game/ArenaBattle/Animation/AM_ComboAttack.AM_ComboAttack'"));
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> ComboActionMontageRef(TEXT("/Game/ArenaBattle/Animation/AM_ComboAttack.AM_ComboAttack"));
 	if (ComboActionMontageRef.Object)
 	{
 		_comboActionMontage = ComboActionMontageRef.Object;
 	}
 
-	static ConstructorHelpers::FObjectFinder<UCWComboAttackData> ComboActionDataRef(TEXT("/Script/ArenaBattle.ABComboActionData'/Game/ArenaBattle/CharacterAction/ABA_ComboAttack.ABA_ComboAttack'"));
+	static ConstructorHelpers::FObjectFinder<UCWComboAttackData> ComboActionDataRef(TEXT("/Game/ArenaBattle/CharacterAction/ABA_ComboAttack.ABA_ComboAttack"));
 	if (ComboActionDataRef.Object)
 	{
 		_comboActionData = ComboActionDataRef.Object;
@@ -82,6 +90,9 @@ ACWCharacterBase::ACWCharacterBase()
 	{
 		_deadMontage = DeadMontageRef.Object;
 	}
+
+	_weapon = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("WEAPON"));
+	_weapon->SetupAttachment(GetMesh(), TEXT("hand_rSocket"));
 
 	_statComp = CreateDefaultSubobject<UCWCharacterStatComponent>(TEXT("Stat"));
 
@@ -100,6 +111,9 @@ ACWCharacterBase::ACWCharacterBase()
 		}
 	}
 
+	_takeItemActions.Add(FTakeItemDelegateWrapper(FOnTakeItemDelegate::CreateUObject(this, &ACWCharacterBase::EquipWeapon))); 
+	_takeItemActions.Add(FTakeItemDelegateWrapper(FOnTakeItemDelegate::CreateUObject(this, &ACWCharacterBase::DrinkPotion)));
+	_takeItemActions.Add(FTakeItemDelegateWrapper(FOnTakeItemDelegate::CreateUObject(this, &ACWCharacterBase::ReadScroll)));
 }
 
 void ACWCharacterBase::PostInitializeComponents()
@@ -206,6 +220,22 @@ void ACWCharacterBase::SetupCharacterWidget(UCWUserWIdgetBase* InUserWidget)
 	}
 }
 
+void ACWCharacterBase::TakeItem(UCWItemData* InItemData)
+{
+	if (nullptr == InItemData)
+	{
+		return;
+	}
+	
+	uint8 Index = StaticCast<uint8>(InItemData->_type);
+	if (false == _takeItemActions.IsValidIndex(Index))
+	{
+		return;
+	}
+	
+	_takeItemActions[Index]._onTakeItemDelegate.ExecuteIfBound(InItemData);
+}
+
 float ACWCharacterBase::TakeDamage(float InDamageAmount, FDamageEvent const& InDamageEvent, AController* InEventInstigator, AActor* InDamageCauser)
 {
 	Super::TakeDamage(InDamageAmount, InDamageEvent, InEventInstigator, InDamageCauser);
@@ -263,4 +293,34 @@ void ACWCharacterBase::PlayDeadAnimation()
 		AnimInstance->StopAllMontages(0.0f);
 		AnimInstance->Montage_Play(_deadMontage);
 	}
+}
+
+void ACWCharacterBase::DrinkPotion(UCWItemData* InItemData)
+{
+	UE_LOG(LogCWCharacter, Log, TEXT("DrinkPotion"));
+}
+
+void ACWCharacterBase::EquipWeapon(UCWItemData* InItemData)
+{
+	UE_LOG(LogCWCharacter, Log, TEXT("EquipWeapon"));
+
+	if (nullptr == InItemData)
+	{
+		return;
+	}
+
+	if (UCWWeaponItemData* WeaponItemData = Cast<UCWWeaponItemData>(InItemData))
+	{
+		if (WeaponItemData->_weaponMesh.IsPending())
+		{
+			WeaponItemData->_weaponMesh.LoadSynchronous();
+		}
+
+		_weapon->SetSkeletalMesh(WeaponItemData->_weaponMesh.Get());
+	}
+}
+
+void ACWCharacterBase::ReadScroll(UCWItemData* InItemData)
+{
+	UE_LOG(LogCWCharacter, Log, TEXT("ReadScroll"));
 }

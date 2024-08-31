@@ -3,7 +3,7 @@
 
 #include "BasicTest/UI/CWUIHpBar.h"
 #include "Components/ProgressBar.h"
-#include "CWCharacterWidgetInterface.h"
+#include "Interface/CWCharacterWidgetInterface.h"
 
 
 UCWUIHpBar::UCWUIHpBar(const FObjectInitializer& ObjectInitializer)

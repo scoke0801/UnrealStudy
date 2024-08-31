@@ -4,8 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
-#include "BasicTest/Animation/CWAnimationAttackInterface.h"
-#include "BasicTest/UI/CWCHaracterWidgetInterface.h"
+#include "BasicTest/Animation/Interface/CWAnimationAttackInterface.h"
+#include "BasicTest/UI/Interface/CWCHaracterWidgetInterface.h"
+#include "Interface/CWCharacterItemIntercae.h"
 #include "CWCharacterBase.generated.h"
 
 class UCWCharacterControlData;
@@ -13,6 +14,21 @@ class UAnimMontage;
 class UCWComboAttackData;
 class UCWWidgetComponentBase;
 class UCWCharacterStatComponent;
+class UCWItemData;
+
+DECLARE_DELEGATE_OneParam(FOnTakeItemDelegate, class UCWItemData* /*InItemData*/);
+DECLARE_LOG_CATEGORY_EXTERN(LogCWCharacter, Log, All);
+
+USTRUCT(BlueprintType)
+struct FTakeItemDelegateWrapper
+{
+	GENERATED_BODY()
+	
+	explicit FTakeItemDelegateWrapper() {}
+	explicit FTakeItemDelegateWrapper(const FOnTakeItemDelegate& InItemDelegate) : _onTakeItemDelegate(InItemDelegate) {}
+	
+	FOnTakeItemDelegate _onTakeItemDelegate;
+};
 
 UENUM()
 enum class ECharacterControlType : uint8
@@ -22,7 +38,8 @@ enum class ECharacterControlType : uint8
 };
 
 UCLASS()
-	class ACWCharacterBase : public ACharacter, public ICWAnimationAttackInterface, public ICWCharacterWidgetInterface
+	class ACWCharacterBase : public ACharacter,
+		public ICWAnimationAttackInterface, public ICWCharacterWidgetInterface, public ICWCharacterItemIntercae
 {
 	GENERATED_BODY()
 
@@ -39,6 +56,14 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Stat, Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UAnimMontage> _deadMontage;
 	
+	UPROPERTY()
+	TArray<FTakeItemDelegateWrapper	> _takeItemActions;
+
+	//Weapon
+protected:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Equipment, meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USkeletalMeshComponent> _weapon;
+
 	// stat
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Stat, meta = (AllowPrivateAccess = "true"))
@@ -78,7 +103,8 @@ protected:
 	void AttackHitCheck() override;
 
 	void SetupCharacterWidget(UCWUserWIdgetBase* InUserWidget) override;
-	
+
+	void TakeItem(UCWItemData* InItemData) override;
 protected:
 	virtual float TakeDamage(float InDamageAmount, FDamageEvent const& InDamageEvent, AController* InEventInstigator, AActor* InDamageCauser) override;
 
@@ -89,5 +115,10 @@ private:
 	void CheckCombo();
 
 	void PlayDeadAnimation();
+
+private:
+	virtual void DrinkPotion(UCWItemData* InItemData); 
+	virtual void EquipWeapon(UCWItemData* InItemData);
+	virtual void ReadScroll(UCWItemData* InItemData);
 
 };
