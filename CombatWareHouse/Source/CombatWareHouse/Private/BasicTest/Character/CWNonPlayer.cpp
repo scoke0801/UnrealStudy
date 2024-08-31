@@ -2,11 +2,22 @@
 
 
 #include "BasicTest/Character/CWNonPlayer.h"
+#include "BasicTest/AI/CWAIController.h"
 
 #include "Engine/AssetManager.h"
 
+
 ACWNonPlayer::ACWNonPlayer()
 {
+	if (USkeletalMeshComponent* MeshComp = GetMesh())
+	{
+		// 로딩 된 이후에, 보이도록 할 것임
+		MeshComp->SetHiddenInGame(true);
+	}
+
+	AIControllerClass = ACWAIController::StaticClass();
+	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
+	
 }
 
 void ACWNonPlayer::PostInitializeComponents()
