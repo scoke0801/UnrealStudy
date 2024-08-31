@@ -5,11 +5,15 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "BasicTest/Animation/CWAnimationAttackInterface.h"
+#include "BasicTest/UI/CWCHaracterWidgetInterface.h"
 #include "CWCharacterBase.generated.h"
 
 class UCWCharacterControlData;
 class UAnimMontage;
 class UCWComboAttackData;
+class UCWWidgetComponentBase;
+class UCWCharacterStatComponent;
+
 UENUM()
 enum class ECharacterControlType : uint8
 {
@@ -18,7 +22,7 @@ enum class ECharacterControlType : uint8
 };
 
 UCLASS()
-	class ACWCharacterBase : public ACharacter, public ICWAnimationAttackInterface
+	class ACWCharacterBase : public ACharacter, public ICWAnimationAttackInterface, public ICWCharacterWidgetInterface
 {
 	GENERATED_BODY()
 
@@ -34,6 +38,16 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Stat, Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UAnimMontage> _deadMontage;
+	
+	// stat
+protected:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Stat, meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UCWCharacterStatComponent> _statComp;
+
+	// UI
+protected:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = UI, meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UCWWidgetComponentBase> _uiHpBar;
 
 protected:
 	float _deadEventDelayTime = 5.0f;
@@ -47,6 +61,7 @@ public:
 	// Sets default values for this character's properties
 	ACWCharacterBase();
 
+	virtual void PostInitializeComponents() override;
 
 protected:
 	virtual void SetCharacterControlData(const UCWCharacterControlData* InCharacterControlData);
@@ -61,7 +76,10 @@ protected:
 	// Interface
 protected:
 	void AttackHitCheck() override;
+
+	void SetupCharacterWidget(UCWUserWIdgetBase* InUserWidget) override;
 	
+protected:
 	virtual float TakeDamage(float InDamageAmount, FDamageEvent const& InDamageEvent, AController* InEventInstigator, AActor* InDamageCauser) override;
 
 	virtual void SetDead();

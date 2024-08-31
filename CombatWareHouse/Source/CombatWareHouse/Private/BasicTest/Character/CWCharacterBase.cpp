@@ -9,6 +9,11 @@
 #include "BasicTest/Data/CWComboAttackData.h"
 #include "BasicTest/Physics/CWCollision.h"
 #include "Engine/DamageEvents.h"
+#include "CWCharacterStatComponent.h"
+#include "BasicTest/UI/CWUserWIdgetBase.h"
+#include "BasicTest/UI/CWWidgetComponentBase.h"
+#include "Components/WidgetComponent.h"
+#include "BasicTest/UI/CWUIHpBar.h"
 
 // Sets default values
 ACWCharacterBase::ACWCharacterBase()
@@ -77,6 +82,31 @@ ACWCharacterBase::ACWCharacterBase()
 	{
 		_deadMontage = DeadMontageRef.Object;
 	}
+
+	_statComp = CreateDefaultSubobject<UCWCharacterStatComponent>(TEXT("Stat"));
+
+	if (_uiHpBar = CreateDefaultSubobject<UCWWidgetComponentBase>(TEXT("Widget")))
+	{
+		_uiHpBar->SetupAttachment(GetMesh());
+		_uiHpBar->SetRelativeLocation(FVector(0.0f, 0.0f, 180.0f));
+
+		static ConstructorHelpers::FClassFinder<UCWUserWIdgetBase> HpBarWidgetRef(TEXT("/Game/Blueprint/UI/WBP_HpBar.WBP_HpBar_C"));
+		if (HpBarWidgetRef.Class)
+		{
+			_uiHpBar->SetWidgetClass(HpBarWidgetRef.Class);
+			_uiHpBar->SetWidgetSpace(EWidgetSpace::Screen);
+			_uiHpBar->SetDrawSize(FVector2D(150.0f, 15.0f));
+			_uiHpBar->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		}
+	}
+
+}
+
+void ACWCharacterBase::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+
+	_statComp->_onHpZeroDelegate.AddUObject(this, &ACWCharacterBase::SetDead);
 }
  
 void ACWCharacterBase::SetCharacterControlData(const UCWCharacterControlData* CharacterControlData)
@@ -165,11 +195,22 @@ void ACWCharacterBase::AttackHitCheck()
 #endif
 }
 
+void ACWCharacterBase::SetupCharacterWidget(UCWUserWIdgetBase* InUserWidget)
+{
+	if (UCWUIHpBar* HpBarWideget = Cast<UCWUIHpBar>(InUserWidget))
+	{
+		HpBarWideget->SetMaxHp(_statComp->GetMaxHp());
+		HpBarWideget->UpdateHpBar(_statComp->GetCurrentHp());
+
+		_statComp->_onHpChangedDelegate.AddUObject(HpBarWideget, &UCWUIHpBar::UpdateHpBar);
+	}
+}
+
 float ACWCharacterBase::TakeDamage(float InDamageAmount, FDamageEvent const& InDamageEvent, AController* InEventInstigator, AActor* InDamageCauser)
 {
 	Super::TakeDamage(InDamageAmount, InDamageEvent, InEventInstigator, InDamageCauser);
 
-	SetDead();
+	_statComp->ApplyDamage(InDamageAmount);
 
 	return InDamageAmount;
 }
@@ -212,6 +253,7 @@ void ACWCharacterBase::SetDead()
 	PlayDeadAnimation();
 
 	SetActorEnableCollision(false);
+	_uiHpBar->SetHiddenInGame(true);
 }
 
 void ACWCharacterBase::PlayDeadAnimation()
