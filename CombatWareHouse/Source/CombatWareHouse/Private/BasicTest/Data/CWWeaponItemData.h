@@ -18,4 +18,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = Weapon)
 	TSoftObjectPtr<USkeletalMesh> _weaponMesh;
 	
+
+public:
+	//FPrimaryAssetId GetPrimaryAssetId() const override;
 };

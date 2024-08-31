@@ -2,11 +2,16 @@
 
 
 #include "BasicTest/Prop/CWItemBox.h"
-#include "Components/BoxComponent.h"
-#include "Components/StaticMeshComponent.h"
-#include "Particles/ParticleSystemComponent.h"
 #include "BasicTest/Character/Interface/CWCharacterItemIntercae.h"
 #include "BasicTest/Physics/CWCollision.h"
+#include "BasicTest/Data/CWItemData.h"
+
+#include "Components/BoxComponent.h"
+#include "Components/StaticMeshComponent.h"
+
+#include "Particles/ParticleSystemComponent.h"
+
+#include "Engine/AssetManager.h"
 
 // Sets default values
 ACWItemBox::ACWItemBox()
@@ -19,7 +24,7 @@ ACWItemBox::ACWItemBox()
 	_mesh->SetupAttachment(_triggerBoxComp);
 	_effect->SetupAttachment(_triggerBoxComp);
 
-	_triggerBoxComp->SetCollisionProfileName(CPROFILE_ABTRIGGER);
+	_triggerBoxComp->SetCollisionProfileName(CPROFILE_CWTRIGGER);
 	_triggerBoxComp->SetBoxExtent(FVector(40.0f, 42.0f, 30.0f));
 	_triggerBoxComp->OnComponentBeginOverlap.AddDynamic(this, &ACWItemBox::OnOverlapBegin);
 
@@ -38,6 +43,28 @@ ACWItemBox::ACWItemBox()
 		_effect->SetTemplate(EffectRef.Object);
 		_effect->bAutoActivate = false;
 	}
+}
+
+void ACWItemBox::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+
+
+	UAssetManager& Manager = UAssetManager::Get();
+
+	TArray<FPrimaryAssetId> AssetIds;
+	Manager.GetPrimaryAssetIdList(TEXT("CWItemData"), AssetIds);
+	ensure(0 < AssetIds.Num());
+
+	int32 RandomIndex = FMath::RandRange(0, AssetIds.Num() - 1);
+	FSoftObjectPtr AssetPtr(Manager.GetPrimaryAssetPath(AssetIds[RandomIndex]));
+	if (AssetPtr.IsPending())
+	{
+		AssetPtr.LoadSynchronous();
+	}
+
+	_item = Cast<UCWItemData>(AssetPtr.Get());
+	ensure(_item);
 }
 
 void ACWItemBox::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepHitResult)

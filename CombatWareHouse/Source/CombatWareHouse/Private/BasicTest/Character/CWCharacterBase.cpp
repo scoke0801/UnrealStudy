@@ -33,7 +33,7 @@ ACWCharacterBase::ACWCharacterBase()
 
 	// Capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 92.0f);
-	GetCapsuleComponent()->SetCollisionProfileName(CPROFILE_ABCAPSULE);
+	GetCapsuleComponent()->SetCollisionProfileName(CPROFILE_CWCAPSULE);
 
 	// Movement
 	GetCharacterMovement()->bOrientRotationToMovement = true;
@@ -188,7 +188,7 @@ void ACWCharacterBase::AttackHitCheck()
 
 	const float AttackRange = 40.0f;
 	const float AttackRadius = 50.0f;
-	const float AttackDamage = 30.0f;
+	const float AttackDamage = 100.0f;
 
 	const FVector Start = GetActorLocation() + GetActorForwardVector() * GetCapsuleComponent()->GetScaledCapsuleRadius();
 	const FVector End = Start + GetActorForwardVector() * AttackRange;

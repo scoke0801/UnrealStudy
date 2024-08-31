@@ -33,11 +33,17 @@ public:
 	// Sets default values for this actor's properties
 	ACWItemBox();
 	
+protected:
+	virtual void PostInitializeComponents() override;
+
 public:
 	UFUNCTION()
 	void OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepHitResult);
 
 	UFUNCTION()
 	void OnEffectFinished(class UParticleSystemComponent* ParticleSystem);
+
+public:
+	FORCEINLINE UBoxComponent* GetTrigger() const { return _triggerBoxComp; }
 
 };

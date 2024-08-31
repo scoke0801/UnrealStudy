@@ -26,4 +26,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Type)
 	EItemType _type;
 
+public:
+	FPrimaryAssetId GetPrimaryAssetId() const override;
 };

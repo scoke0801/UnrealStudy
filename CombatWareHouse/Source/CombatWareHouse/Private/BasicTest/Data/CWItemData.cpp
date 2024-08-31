@@ -3,3 +3,7 @@
 
 #include "BasicTest/Data/CWItemData.h"
 
+FPrimaryAssetId UCWItemData::GetPrimaryAssetId() const
+{
+	return FPrimaryAssetId("CWItemData", GetFName());
+}

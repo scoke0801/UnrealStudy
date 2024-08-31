@@ -3,3 +3,7 @@
 
 #include "BasicTest/Data/CWWeaponItemData.h"
 
+//FPrimaryAssetId UCWWeaponItemData::GetPrimaryAssetId() const
+//{
+//	return FPrimaryAssetId("CWItemData", GetFName());
+//}
