@@ -70,6 +70,8 @@ ACWStageGimmick::ACWStageGimmick()
 		FVector BoxLocation = _stage->GetSocketLocation(GateSocket) / 2;
 		_rewardBoxLocations.Add(GateSocket, BoxLocation);
 	}
+
+	_currentStageNum = 0;
 }
 
 void ACWStageGimmick::OnConstruction(const FTransform& InTransform)
@@ -101,7 +103,13 @@ void ACWStageGimmick::OnGateTriggerBeginOverlap(UPrimitiveComponent* OverlappedC
 
 	if (!bResult)
 	{
-		GetWorld()->SpawnActor<ACWStageGimmick>(NewLocation, FRotator::ZeroRotator);
+		FTransform NewTransform(NewLocation);
+		if (ACWStageGimmick* NewGimmick = GetWorld()->SpawnActorDeferred<ACWStageGimmick>(ACWStageGimmick::StaticClass(), NewTransform))
+		{
+			NewGimmick->SetStageNum(_currentStageNum + 1);
+
+			NewGimmick->FinishSpawning(NewTransform);
+		}
 	}
 }
 
@@ -135,13 +143,14 @@ void ACWStageGimmick::OnOpponentDestroyed(AActor* InDestoyedActor)
 
 void ACWStageGimmick::OnOpponentSpawn()
 {
+	const FTransform SpawnTransform(GetActorLocation() + FVector::UpVector * 88.0f);
 	const FVector SpawnLocation = GetActorLocation() + FVector::UpVector * 88.0f;
-	if (AActor* OpponentActor = GetWorld()->SpawnActor(_opponentClass, &SpawnLocation, &FRotator::ZeroRotator))
+	if (ACWNonPlayer* OpponentActor = GetWorld()->SpawnActorDeferred<ACWNonPlayer>(_opponentClass, SpawnTransform))
 	{
-		if (ACWNonPlayer* CWOpponentCharacter = Cast<ACWNonPlayer>(OpponentActor))
-		{
-			CWOpponentCharacter->OnDestroyed.AddDynamic(this, &ACWStageGimmick::OnOpponentDestroyed);
-		}
+		OpponentActor->OnDestroyed.AddDynamic(this, &ACWStageGimmick::OnOpponentDestroyed);
+		OpponentActor->SetLevel(_currentStageNum);
+
+		OpponentActor->FinishSpawning(SpawnTransform);
 	}
 }
 
@@ -224,14 +233,17 @@ void ACWStageGimmick::SpawnRewardBoxes()
 {
 	for (const auto& RewardBoxLocation : _rewardBoxLocations)
 	{
-		FVector WorldSpawnLocation = GetActorLocation() + RewardBoxLocation.Value + FVector(0.0f, 0.0f, 30.0f);
-		AActor* ItemActor = GetWorld()->SpawnActor(_rewardBoxClass, &WorldSpawnLocation, &FRotator::ZeroRotator);
-		ACWItemBox* RewardBoxActor = Cast<ACWItemBox>(ItemActor);
-		if (RewardBoxActor)
+		FTransform NewTransform(GetActorLocation() + RewardBoxLocation.Value + FVector(0.0f, 0.0f, 30.0f));
+		if (ACWItemBox* RewardBoxActor = GetWorld()->SpawnActorDeferred<ACWItemBox>(_rewardBoxClass, NewTransform))
 		{
 			RewardBoxActor->Tags.Add(RewardBoxLocation.Key);
 			RewardBoxActor->GetTrigger()->OnComponentBeginOverlap.AddDynamic(this, &ACWStageGimmick::OnRewardTriggerBeginOverlap);
 			_rewardBoxes.Add(RewardBoxActor);
 		}
+	}
+
+	for (auto RewardBox : _rewardBoxes)
+	{
+		RewardBox.Get()->FinishSpawning(RewardBox.Get()->GetActorTransform());
 	}
 }

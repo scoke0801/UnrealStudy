@@ -2,12 +2,12 @@
 
 
 #include "BasicTest/Character/CWCharacterStatComponent.h"
+#include "BasicTest/Management/CWGameSingleton.h"
 
 // Sets default values for this component's properties
 UCWCharacterStatComponent::UCWCharacterStatComponent()
 {
-	// ...
-	_maxHp = 200.0f;
+	_currentLevel = 1;
 }
 
 
@@ -16,15 +16,21 @@ void UCWCharacterStatComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// ...
-	SetHp(_maxHp);
+	SetLevelStat(_currentLevel);
+	SetHp(_baseStat.MaxHp);
 }
 
 void UCWCharacterStatComponent::SetHp(float InNewHp)
 {
-	_currentHp = FMath::Clamp<float>(InNewHp, 0.0f, _maxHp);
+	_currentHp = FMath::Clamp<float>(InNewHp, 0.0f, _baseStat.MaxHp);
 
 	_onHpChangedDelegate.Broadcast(_currentHp);
+}
+
+void UCWCharacterStatComponent::SetLevelStat(int32 InNewLevel)
+{
+	_currentLevel = FMath::Clamp(InNewLevel, 1, UCWGameSingleton::Get().GetChracterMaxLevel());
+	_baseStat = UCWGameSingleton::Get().GetCharacterStat(_currentLevel);
 }
 
 float UCWCharacterStatComponent::ApplyDamage(float InDamage)

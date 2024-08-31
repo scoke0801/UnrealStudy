@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "BasicTest/Data/CWCharacterStat.h"
 #include "CWCharacterStatComponent.generated.h"
 
 DECLARE_MULTICAST_DELEGATE(FOnHpZeroDelegate);
@@ -19,12 +20,17 @@ public:
 	FOnHpChangeDelegate _onHpChangedDelegate;
 
 protected:
-
-	UPROPERTY(VisibleInstanceOnly, Category = Stat)
-	float _maxHp;
-
 	UPROPERTY(Transient, VisibleInstanceOnly, Category = Stat)
 	float _currentHp;
+	
+	UPROPERTY(Transient, VisibleInstanceOnly, Category = Stat)
+	float _currentLevel;
+
+	UPROPERTY(Transient, VisibleInstanceOnly, Category = Stat, Meta = (AllowPrivateAccess = "true"))
+	FCWCharacterStat _baseStat;
+
+	UPROPERTY(Transient, VisibleInstanceOnly, Category = Stat, Meta = (AllowPrivateAccess = "true"))
+	FCWCharacterStat _moditierStat;
 
 public:	
 	// Sets default values for this component's properties
@@ -38,7 +44,11 @@ private:
 	void SetHp(float InNewHp);
 
 public:
-	FORCEINLINE float GetMaxHp() const { return _maxHp; }
+	void SetLevelStat(int32 InNewLevel);
+
+	FORCEINLINE float GetCurrentLevel() const { return _currentLevel; }
+	FORCEINLINE void SetModifierStat(const FCWCharacterStat& InModifierStat) { _moditierStat = InModifierStat; }
+	FORCEINLINE FCWCharacterStat GetTotalStat() const { return _baseStat + _moditierStat; }
 	FORCEINLINE float GetCurrentHp() const { return _currentHp; }
 
 	float ApplyDamage(float InDamage);

@@ -88,6 +88,10 @@ public:
 
 	virtual void PostInitializeComponents() override;
 
+public:
+	int32 GetLevel();
+	void SetLevel(int32 InNewLevel);
+
 protected:
 	virtual void SetCharacterControlData(const UCWCharacterControlData* InCharacterControlData);
 

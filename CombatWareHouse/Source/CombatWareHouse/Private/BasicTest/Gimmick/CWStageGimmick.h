@@ -68,6 +68,10 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, Category = Reward, Meta = (AllowPrivateAccess = "true"))
 	TArray<TWeakObjectPtr<ACWItemBox>> _rewardBoxes;
+
+	UPROPERTY(VisibleInstanceOnly, Category = Stat, Meta = (AllowPrivateAccess = "true"))
+	int32 _currentStageNum;
+
 private:
 	FTimerHandle _opponentTimerHandle;
 
@@ -93,6 +97,10 @@ protected:
 	UFUNCTION()
 	void OnOpponentDestroyed(AActor* InDestoyedActor);
 	void OnOpponentSpawn();
+
+public:
+	FORCEINLINE int32 GetStageNum() const { return _currentStageNum; }
+	FORCEINLINE void SetStageNum(int32 InNewStageNum) { _currentStageNum = InNewStageNum; }
 
 protected:
 	void SetState(const EStageState InNewState);

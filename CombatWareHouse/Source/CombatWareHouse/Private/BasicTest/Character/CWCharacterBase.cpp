@@ -122,6 +122,16 @@ void ACWCharacterBase::PostInitializeComponents()
 
 	_statComp->_onHpZeroDelegate.AddUObject(this, &ACWCharacterBase::SetDead);
 }
+
+int32 ACWCharacterBase::GetLevel()
+{
+	return _statComp->GetCurrentLevel();
+}
+
+void ACWCharacterBase::SetLevel(int32 InNewLevel)
+{
+	_statComp->SetLevelStat(InNewLevel);
+}
  
 void ACWCharacterBase::SetCharacterControlData(const UCWCharacterControlData* CharacterControlData)
 {
@@ -158,7 +168,7 @@ void ACWCharacterBase::ComboActionBegin()
 
 	GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_None);
 
-	const float AttackSpeedRate = 1.0f;
+	const float AttackSpeedRate = _statComp->GetTotalStat().AttackSpeed;
 	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 	{
 		AnimInstance->Montage_Play(_comboActionMontage, AttackSpeedRate);
@@ -186,9 +196,9 @@ void ACWCharacterBase::AttackHitCheck()
 	FHitResult OutHitResult;
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(Attack), false, this);
 
-	const float AttackRange = 40.0f;
-	const float AttackRadius = 50.0f;
-	const float AttackDamage = 100.0f;
+	const float AttackRange = _statComp->GetTotalStat().AttackRange;
+	const float AttackRadius = 50;
+	const float AttackDamage = _statComp->GetTotalStat().Attack;
 
 	const FVector Start = GetActorLocation() + GetActorForwardVector() * GetCapsuleComponent()->GetScaledCapsuleRadius();
 	const FVector End = Start + GetActorForwardVector() * AttackRange;
@@ -213,7 +223,7 @@ void ACWCharacterBase::SetupCharacterWidget(UCWUserWIdgetBase* InUserWidget)
 {
 	if (UCWUIHpBar* HpBarWideget = Cast<UCWUIHpBar>(InUserWidget))
 	{
-		HpBarWideget->SetMaxHp(_statComp->GetMaxHp());
+		HpBarWideget->SetMaxHp(_statComp->GetTotalStat().MaxHp);
 		HpBarWideget->UpdateHpBar(_statComp->GetCurrentHp());
 
 		_statComp->_onHpChangedDelegate.AddUObject(HpBarWideget, &UCWUIHpBar::UpdateHpBar);
@@ -250,7 +260,7 @@ void ACWCharacterBase::SetComboCheckTimer()
 	int32 ComboIndex = _currentCombo - 1;
 	ensure(_comboActionData->_effectiveFrameCount.IsValidIndex(ComboIndex));
 
-	const float AttackSpeedRate = 1.0f;
+	const float AttackSpeedRate = _statComp->GetTotalStat().AttackSpeed;
 	float ComboEffectiveTime = (_comboActionData->_effectiveFrameCount[ComboIndex] / _comboActionData->_frameRate) / AttackSpeedRate;
 
 	if (ComboEffectiveTime > 0.0f)
@@ -317,6 +327,7 @@ void ACWCharacterBase::EquipWeapon(UCWItemData* InItemData)
 		}
 
 		_weapon->SetSkeletalMesh(WeaponItemData->_weaponMesh.Get());
+		_statComp->SetModifierStat(WeaponItemData->_modifierStat);
 	}
 }
 

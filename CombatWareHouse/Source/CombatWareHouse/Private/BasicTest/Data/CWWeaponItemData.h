@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "BasicTest/Data/CWItemData.h"
+#include "BasicTest/Data/CWCharacterStat.h"
 #include "CWWeaponItemData.generated.h"
 
 /**
@@ -18,6 +19,8 @@ public:
 	UPROPERTY(EditAnywhere, Category = Weapon)
 	TSoftObjectPtr<USkeletalMesh> _weaponMesh;
 	
+	UPROPERTY(EditAnywhere, Category = Weapon)
+	FCWCharacterStat _modifierStat;
 
 public:
 	//FPrimaryAssetId GetPrimaryAssetId() const override;

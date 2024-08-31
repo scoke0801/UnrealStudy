@@ -26,7 +26,6 @@ ACWItemBox::ACWItemBox()
 
 	_triggerBoxComp->SetCollisionProfileName(CPROFILE_CWTRIGGER);
 	_triggerBoxComp->SetBoxExtent(FVector(40.0f, 42.0f, 30.0f));
-	_triggerBoxComp->OnComponentBeginOverlap.AddDynamic(this, &ACWItemBox::OnOverlapBegin);
 
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> BoxMeshRef(TEXT("/Game/Environment/Props/SM_Env_Breakables_Box1.SM_Env_Breakables_Box1"));
 	if (BoxMeshRef.Object)
@@ -65,6 +64,9 @@ void ACWItemBox::PostInitializeComponents()
 
 	_item = Cast<UCWItemData>(AssetPtr.Get());
 	ensure(_item);
+
+	_triggerBoxComp->OnComponentBeginOverlap.AddDynamic(this, &ACWItemBox::OnOverlapBegin);
+
 }
 
 void ACWItemBox::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepHitResult)
