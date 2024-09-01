@@ -8,6 +8,7 @@
 UCWCharacterStatComponent::UCWCharacterStatComponent()
 {
 	_currentLevel = 1;
+	_attackRadius = 50.0f;
 }
 
 

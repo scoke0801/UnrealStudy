@@ -102,6 +102,8 @@ protected:
 	void ComboActionBegin();
 	void ComboActionEnd(UAnimMontage* InTargetMontage, bool InIsEnded);
 
+	virtual void NotifyComboActionEnd();
+
 	// Interface
 protected:
 	void AttackHitCheck() override;

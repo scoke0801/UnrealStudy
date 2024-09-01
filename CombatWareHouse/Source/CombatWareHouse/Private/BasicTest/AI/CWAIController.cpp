@@ -2,6 +2,9 @@
 
 
 #include "BasicTest/AI/CWAIController.h"
+
+#include "CWAICommon.h"
+
 #include "BehaviorTree/BehaviorTree.h"
 #include "BehaviorTree/BlackboardData.h"
 #include "BehaviorTree/BlackboardComponent.h"
@@ -24,18 +27,11 @@ ACWAIController::ACWAIController()
 
 void ACWAIController::RunAI()
 {
-	//if(UBlackboardComponent* BlackBoardPtr = Blackboard.Get())
-	//{
-	//	if (UseBlackboard(_blackBoard, BlackBoardPtr))
-	//	{
-	//		bool RunResult = RunBehaviorTree(_behaviorTree);
-	//		ensure(RunResult);
-	//	}
-	//}
-
 	UBlackboardComponent* BlackboardPtr = Blackboard.Get();
 	if (UseBlackboard(_blackBoard, BlackboardPtr))
 	{
+		BlackboardPtr->SetValueAsVector(BBKEY_HOMEPOS, GetPawn()->GetActorLocation()); 
+
 		bool RunResult = RunBehaviorTree(_behaviorTree);
 		ensure(RunResult);
 	}

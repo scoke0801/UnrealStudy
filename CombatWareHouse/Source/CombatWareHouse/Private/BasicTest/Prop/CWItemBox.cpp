@@ -68,7 +68,6 @@ void ACWItemBox::PostInitializeComponents()
 	_triggerBoxComp->OnComponentBeginOverlap.AddDynamic(this, &ACWItemBox::OnOverlapBegin);
 
 }
-
 void ACWItemBox::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepHitResult)
 {
 	if (nullptr == _item)

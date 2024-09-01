@@ -3,6 +3,7 @@
 
 #include "BasicTest/Character/CWNonPlayer.h"
 #include "BasicTest/AI/CWAIController.h"
+#include "CWCharacterStatComponent.h"
 
 #include "Engine/AssetManager.h"
 
@@ -17,7 +18,12 @@ ACWNonPlayer::ACWNonPlayer()
 
 	AIControllerClass = ACWAIController::StaticClass();
 	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
-	
+
+	static ConstructorHelpers::FClassFinder<UAnimInstance> AnimInstanceClassRef(TEXT("/Game/Blueprint/Animation/ABP_Enemy.ABP_Enemy_C"));
+	if (AnimInstanceClassRef.Class)
+	{
+		GetMesh()->SetAnimInstanceClass(AnimInstanceClassRef.Class);
+	}
 }
 
 void ACWNonPlayer::PostInitializeComponents()
@@ -60,4 +66,41 @@ void ACWNonPlayer::NPCMeshLoadCompleted()
 	}
 
 	_npcMeshHandle->ReleaseHandle();
+}
+
+void ACWNonPlayer::NotifyComboActionEnd()
+{
+	Super::NotifyComboActionEnd();
+
+	OnAttackFinished.ExecuteIfBound();
+}
+
+float ACWNonPlayer::GetAIPatrolRadius()
+{
+	return 800.0f;
+}
+
+float ACWNonPlayer::GetAIDetectRange()
+{
+	return 400.0f;
+}
+
+float ACWNonPlayer::GetAIAttackRange()
+{
+	return _statComp->GetTotalStat().AttackRange + _statComp->GetAttackRadius() * 2;
+}
+
+float ACWNonPlayer::GetAITurnSpeed()
+{
+	return 2.0f;
+}
+
+void ACWNonPlayer::SetAIAttackDelegate(const FAICharacterAttackFinished& InOnAttackFinished)
+{
+	OnAttackFinished = InOnAttackFinished;
+}
+
+void ACWNonPlayer::AttackByAI()
+{
+	ProcessComboCommand(1.0f);
 }

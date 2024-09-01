@@ -73,13 +73,13 @@ ACWCharacterBase::ACWCharacterBase()
 		CharacterControlManager.Add(ECharacterControlType::Quater, QuaterDataRef.Object);
 	}
 
-	static ConstructorHelpers::FObjectFinder<UAnimMontage> ComboActionMontageRef(TEXT("/Game/ArenaBattle/Animation/AM_ComboAttack.AM_ComboAttack"));
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> ComboActionMontageRef(TEXT("/Game/Animation/Montage/AM_ComboAttack.AM_ComboAttack"));
 	if (ComboActionMontageRef.Object)
 	{
 		_comboActionMontage = ComboActionMontageRef.Object;
 	}
 
-	static ConstructorHelpers::FObjectFinder<UCWComboAttackData> ComboActionDataRef(TEXT("/Game/ArenaBattle/CharacterAction/ABA_ComboAttack.ABA_ComboAttack"));
+	static ConstructorHelpers::FObjectFinder<UCWComboAttackData> ComboActionDataRef(TEXT("/Game/Data/CharacterAction/DA_AttackCombo.DA_AttackCombo"));
 	if (ComboActionDataRef.Object)
 	{
 		_comboActionData = ComboActionDataRef.Object;
@@ -189,6 +189,12 @@ void ACWCharacterBase::ComboActionEnd(UAnimMontage* InTargetMontage, bool InIsEn
 	_currentCombo = 0;
 
 	GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
+
+	NotifyComboActionEnd();
+}
+
+void ACWCharacterBase::NotifyComboActionEnd()
+{
 }
 
 void ACWCharacterBase::AttackHitCheck()
@@ -197,7 +203,7 @@ void ACWCharacterBase::AttackHitCheck()
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(Attack), false, this);
 
 	const float AttackRange = _statComp->GetTotalStat().AttackRange;
-	const float AttackRadius = 50;
+	const float AttackRadius = _statComp->GetAttackRadius();
 	const float AttackDamage = _statComp->GetTotalStat().Attack;
 
 	const FVector Start = GetActorLocation() + GetActorForwardVector() * GetCapsuleComponent()->GetScaledCapsuleRadius();
