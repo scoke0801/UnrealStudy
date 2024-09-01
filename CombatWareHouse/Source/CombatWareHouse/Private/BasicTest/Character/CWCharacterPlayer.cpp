@@ -2,6 +2,7 @@
 
 
 #include "BasicTest/Character/CWCharacterPlayer.h"
+#include "BasicTest/UI/CWUIHUDIngame.h"
 
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -10,6 +11,7 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "CWCharacterAnimInstance.h"
+#include "CWCharacterStatComponent.h"
 
 ACWCharacterPlayer::ACWCharacterPlayer()
 {
@@ -82,6 +84,18 @@ void ACWCharacterPlayer::SetupPlayerInputComponent(class UInputComponent* Player
 	EnhancedInputComponent->BindAction(ShoulderLookAction, ETriggerEvent::Triggered, this, &ACWCharacterPlayer::ShoulderLook);
 	EnhancedInputComponent->BindAction(QuaterMoveAction, ETriggerEvent::Triggered, this, &ACWCharacterPlayer::QuaterMove);
 	EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &ACWCharacterPlayer::Attack);
+}
+
+void ACWCharacterPlayer::SetupHUDWIdget(UCWUIHUDIngame* InHUDWidget)
+{
+	if (InHUDWidget)
+	{
+		InHUDWidget->UpdateStat(_statComp->GetBaseStat(), _statComp->GetModifierStat());
+		InHUDWidget->UpdateHpBar(_statComp->GetCurrentHp());
+
+		_statComp->_onStatChangedDeletage.AddUObject(InHUDWidget, &UCWUIHUDIngame::UpdateStat);
+		_statComp->_onHpChangedDelegate.AddUObject(InHUDWidget, &UCWUIHUDIngame::UpdateHpBar);
+	}
 }
 
 void ACWCharacterPlayer::ChangeCharacterControl()

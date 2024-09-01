@@ -8,7 +8,8 @@
 #include "CWCharacterStatComponent.generated.h"
 
 DECLARE_MULTICAST_DELEGATE(FOnHpZeroDelegate);
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnHpChangeDelegate, float /* CurrentHp */);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnHpChangeDelegate, float /* CurrentHp */); 
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnStatChangedDelegate, const FCWCharacterStat& /*BaseStat*/, const FCWCharacterStat& /*ModifierStat*/);
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class UCWCharacterStatComponent : public UActorComponent
@@ -18,6 +19,7 @@ class UCWCharacterStatComponent : public UActorComponent
 public:
 	FOnHpZeroDelegate _onHpZeroDelegate;
 	FOnHpChangeDelegate _onHpChangedDelegate;
+	FOnStatChangedDelegate _onStatChangedDeletage;
 
 protected:
 	UPROPERTY(Transient, VisibleInstanceOnly, Category = Stat)
@@ -33,27 +35,29 @@ protected:
 	FCWCharacterStat _baseStat;
 
 	UPROPERTY(Transient, VisibleInstanceOnly, Category = Stat, Meta = (AllowPrivateAccess = "true"))
-	FCWCharacterStat _moditierStat;
+	FCWCharacterStat _modifierStat;
 
 public:	
 	// Sets default values for this component's properties
 	UCWCharacterStatComponent();
 
-protected:
-	// Called when the game starts
-	virtual void BeginPlay() override;
-	
+protected: 
+	virtual void InitializeComponent() override;
 private:
 	void SetHp(float InNewHp);
 
 public:
 	void SetLevelStat(int32 InNewLevel);
 
+	FORCEINLINE const FCWCharacterStat& GetBaseStat() const { return _baseStat; }
+	FORCEINLINE const FCWCharacterStat& GetModifierStat() const { return _modifierStat; }
 	FORCEINLINE float GetCurrentLevel() const { return _currentLevel; }
-	FORCEINLINE void SetModifierStat(const FCWCharacterStat& InModifierStat) { _moditierStat = InModifierStat; }
-	FORCEINLINE FCWCharacterStat GetTotalStat() const { return _baseStat + _moditierStat; }
+	FORCEINLINE FCWCharacterStat GetTotalStat() const { return _baseStat + _modifierStat; }
 	FORCEINLINE float GetCurrentHp() const { return _currentHp; }
 	FORCEINLINE float GetAttackRadius() const { return _attackRadius; }
+
+	void SetBaseStat(const FCWCharacterStat& InBaseStat);
+	void SetModifierStat(const FCWCharacterStat& InModifierStat);
 
 	float ApplyDamage(float InDamage);
 };

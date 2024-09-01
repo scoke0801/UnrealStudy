@@ -5,17 +5,19 @@
 #include "CoreMinimal.h"
 #include "BasicTest/Character/CWCharacterBase.h"
 #include "InputActionValue.h"
+#include "Interface/CWCharacterHUDInterface.h"
 #include "CWCharacterPlayer.generated.h"
 
 class UCWCharacterControlData;
 class UInputAction;
 class USpringArmComponent;
 class UCameraComponent;
+class UCWUIHUDIngame;
 /**
  * 
  */
 UCLASS()
-class ACWCharacterPlayer : public ACWCharacterBase
+class ACWCharacterPlayer : public ACWCharacterBase, public ICWCharacterHUDInterface
 {
 	GENERATED_BODY() 
 
@@ -57,6 +59,10 @@ protected:
 
 public:
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
+
+	// Interface
+protected:
+	virtual void SetupHUDWIdget(UCWUIHUDIngame* InHUDWidget) override;
 
 	// Character Control Section
 protected:

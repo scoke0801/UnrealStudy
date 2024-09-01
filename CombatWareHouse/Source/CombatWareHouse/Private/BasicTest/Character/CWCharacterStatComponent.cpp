@@ -9,13 +9,13 @@ UCWCharacterStatComponent::UCWCharacterStatComponent()
 {
 	_currentLevel = 1;
 	_attackRadius = 50.0f;
-}
 
+	bWantsInitializeComponent = true;
+} 
 
-// Called when the game starts
-void UCWCharacterStatComponent::BeginPlay()
+void UCWCharacterStatComponent::InitializeComponent()
 {
-	Super::BeginPlay();
+	Super::InitializeComponent();
 
 	SetLevelStat(_currentLevel);
 	SetHp(_baseStat.MaxHp);
@@ -32,6 +32,20 @@ void UCWCharacterStatComponent::SetLevelStat(int32 InNewLevel)
 {
 	_currentLevel = FMath::Clamp(InNewLevel, 1, UCWGameSingleton::Get().GetChracterMaxLevel());
 	_baseStat = UCWGameSingleton::Get().GetCharacterStat(_currentLevel);
+}
+
+void UCWCharacterStatComponent::SetBaseStat(const FCWCharacterStat& InBaseStat)
+{
+	_baseStat = InBaseStat; 
+
+	_onStatChangedDeletage.Broadcast(GetBaseStat(), GetModifierStat());
+}
+
+void UCWCharacterStatComponent::SetModifierStat(const FCWCharacterStat& InModifierStat)
+{
+	_modifierStat = InModifierStat;
+
+	_onStatChangedDeletage.Broadcast(GetBaseStat(), GetModifierStat());
 }
 
 float UCWCharacterStatComponent::ApplyDamage(float InDamage)

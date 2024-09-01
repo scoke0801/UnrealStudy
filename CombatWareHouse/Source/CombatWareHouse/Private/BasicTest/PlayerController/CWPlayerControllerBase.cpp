@@ -2,7 +2,16 @@
 
 
 #include "BasicTest/PlayerController/CWPlayerControllerBase.h"
+#include "BasicTest/UI/CWUIHUDIngame.h"
 
+ACWPlayerControllerBase::ACWPlayerControllerBase()
+{
+	static ConstructorHelpers::FClassFinder<UCWUIHUDIngame> HUDWidegRef(TEXT("/Game/Blueprint/UI/WBP_IngameHUD.WBP_IngameHUD_C"));
+	if(HUDWidegRef.Class)
+	{
+		_HUDWidgetClass = HUDWidegRef.Class;
+	}
+}
 
 void ACWPlayerControllerBase::BeginPlay()
 {
@@ -10,4 +19,9 @@ void ACWPlayerControllerBase::BeginPlay()
 
 	FInputModeGameOnly GameOnlyInputMode;
 	SetInputMode(GameOnlyInputMode);
+
+	if (_HUDWIdget = CreateWidget<UCWUIHUDIngame>(this, _HUDWidgetClass))
+	{
+		_HUDWIdget->AddToViewport();
+	}
 }
