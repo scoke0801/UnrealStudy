@@ -3,7 +3,13 @@
 
 #include "BasicTest/Data/CWWeaponItemData.h"
 
-//FPrimaryAssetId UCWWeaponItemData::GetPrimaryAssetId() const
-//{
-//	return FPrimaryAssetId("CWItemData", GetFName());
-//}
+
+
+UCWWeaponItemData::UCWWeaponItemData()
+{
+	_type = EItemType::Weapon;
+}
+FPrimaryAssetId UCWWeaponItemData::GetPrimaryAssetId() const
+{
+	return FPrimaryAssetId("CWItemData", GetFName());
+}

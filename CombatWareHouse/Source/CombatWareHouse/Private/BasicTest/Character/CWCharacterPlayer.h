@@ -44,7 +44,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputAction> AttackAction;
 
-	ECharacterControlType CurrentCharacterControlType;
+	ECharacterControlType _currentCharacterControlType;
 
 	// Camera Section
 protected:
@@ -59,6 +59,9 @@ protected:
 
 public:
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
+
+protected:
+	virtual void SetDead() override;
 
 	// Interface
 protected:

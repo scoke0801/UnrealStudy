@@ -6,6 +6,7 @@
 #include "GameFramework/Character.h"
 #include "BasicTest/Animation/Interface/CWAnimationAttackInterface.h"
 #include "BasicTest/UI/Interface/CWCHaracterWidgetInterface.h"
+#include "BasicTest/Data/CWCharacterStat.h"
 #include "Interface/CWCharacterItemIntercae.h"
 #include "CWCharacterBase.generated.h"
 
@@ -91,6 +92,8 @@ public:
 public:
 	int32 GetLevel();
 	void SetLevel(int32 InNewLevel);
+
+	void ApplyStat(const FCWCharacterStat& InBaseStat, const FCWCharacterStat& InModifierStat);
 
 protected:
 	virtual void SetCharacterControlData(const UCWCharacterControlData* InCharacterControlData);

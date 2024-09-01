@@ -34,6 +34,20 @@ void UCWCharacterStatComponent::SetLevelStat(int32 InNewLevel)
 	_baseStat = UCWGameSingleton::Get().GetCharacterStat(_currentLevel);
 }
 
+void UCWCharacterStatComponent::HealHP(float InHealAmount)
+{ 
+	_currentHp = FMath::Clamp(_currentHp + InHealAmount, 0, GetTotalStat().MaxHp); 
+
+	_onHpChangedDelegate.Broadcast(_currentHp);
+}
+
+void UCWCharacterStatComponent::AddBaseStat(const FCWCharacterStat& InAddBaseStat)
+{
+	_baseStat = _baseStat + InAddBaseStat;
+
+	_onStatChangedDeletage.Broadcast(_baseStat, GetModifierStat());
+}
+
 void UCWCharacterStatComponent::SetBaseStat(const FCWCharacterStat& InBaseStat)
 {
 	_baseStat = InBaseStat; 

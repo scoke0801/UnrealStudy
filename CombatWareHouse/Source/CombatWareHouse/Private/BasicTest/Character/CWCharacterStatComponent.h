@@ -55,6 +55,10 @@ public:
 	FORCEINLINE FCWCharacterStat GetTotalStat() const { return _baseStat + _modifierStat; }
 	FORCEINLINE float GetCurrentHp() const { return _currentHp; }
 	FORCEINLINE float GetAttackRadius() const { return _attackRadius; }
+	 
+	void HealHP(float InHealAmount);
+
+	void AddBaseStat(const FCWCharacterStat& InAddBaseStat);
 
 	void SetBaseStat(const FCWCharacterStat& InBaseStat);
 	void SetModifierStat(const FCWCharacterStat& InModifierStat);

@@ -61,14 +61,14 @@ ACWCharacterPlayer::ACWCharacterPlayer()
 	{
 		AttackAction = InputActionAttackRef.Object;
 	}
-	CurrentCharacterControlType = ECharacterControlType::Quater;
+	_currentCharacterControlType = ECharacterControlType::Quater;
 }
 
 void ACWCharacterPlayer::BeginPlay()
 {
 	Super::BeginPlay();
 
-	SetCharacterControl(CurrentCharacterControlType);
+	SetCharacterControl(_currentCharacterControlType);
 }
 
 void ACWCharacterPlayer::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
@@ -86,6 +86,18 @@ void ACWCharacterPlayer::SetupPlayerInputComponent(class UInputComponent* Player
 	EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &ACWCharacterPlayer::Attack);
 }
 
+void ACWCharacterPlayer::SetDead()
+{
+	Super::SetDead();
+
+	if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
+	{
+		EnableInput(PlayerController);
+	}
+
+	SetCharacterControl(_currentCharacterControlType);
+}
+
 void ACWCharacterPlayer::SetupHUDWIdget(UCWUIHUDIngame* InHUDWidget)
 {
 	if (InHUDWidget)
@@ -100,11 +112,11 @@ void ACWCharacterPlayer::SetupHUDWIdget(UCWUIHUDIngame* InHUDWidget)
 
 void ACWCharacterPlayer::ChangeCharacterControl()
 {
-	if (CurrentCharacterControlType == ECharacterControlType::Quater)
+	if (_currentCharacterControlType == ECharacterControlType::Quater)
 	{
 		SetCharacterControl(ECharacterControlType::Shoulder);
 	}
-	else if (CurrentCharacterControlType == ECharacterControlType::Shoulder)
+	else if (_currentCharacterControlType == ECharacterControlType::Shoulder)
 	{
 		SetCharacterControl(ECharacterControlType::Quater);
 	}
@@ -128,7 +140,7 @@ void ACWCharacterPlayer::SetCharacterControl(ECharacterControlType NewCharacterC
 		}
 	}
 
-	CurrentCharacterControlType = NewCharacterControlType;
+	_currentCharacterControlType = NewCharacterControlType;
 }
 
 void ACWCharacterPlayer::SetCharacterControlData(const UCWCharacterControlData* CharacterControlData)
@@ -193,7 +205,7 @@ void ACWCharacterPlayer::Attack()
 {
 	if (auto AnimInstance = Cast<UCWCharacterAnimInstance>(GetMesh()->GetAnimInstance()))
 	{
-		if (AnimInstance->IsCanAttack())
+		if (AnimInstance->IsCanAttack() || _statComp->GetCurrentHp() != 0)
 		{
 			ProcessComboCommand(1.0f);
 		}

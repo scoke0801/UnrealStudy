@@ -7,7 +7,7 @@
 #include "BasicTest/UI/CWUserWIdgetBase.h"
 #include "BasicTest/UI/CWWidgetComponentBase.h"
 #include "BasicTest/UI/CWUIHpBar.h"
-#include "BasicTest/Data/CWWeaponItemData.h"
+#include "BasicTest/Data/CWItemCommon.h"
 
 #include "CWCharacterControlData.h"
 #include "CWCharacterStatComponent.h"
@@ -121,6 +121,7 @@ void ACWCharacterBase::PostInitializeComponents()
 	Super::PostInitializeComponents();
 
 	_statComp->_onHpZeroDelegate.AddUObject(this, &ACWCharacterBase::SetDead);
+	_statComp->_onStatChangedDeletage.AddUObject(this, &ACWCharacterBase::ApplyStat);
 }
 
 int32 ACWCharacterBase::GetLevel()
@@ -131,6 +132,12 @@ int32 ACWCharacterBase::GetLevel()
 void ACWCharacterBase::SetLevel(int32 InNewLevel)
 {
 	_statComp->SetLevelStat(InNewLevel);
+}
+
+void ACWCharacterBase::ApplyStat(const FCWCharacterStat& InBaseStat, const FCWCharacterStat& InModifierStat)
+{
+	float MovementSpeed = (InBaseStat + InModifierStat).MovementSpeed;
+	GetCharacterMovement()->MaxWalkSpeed = MovementSpeed;
 }
  
 void ACWCharacterBase::SetCharacterControlData(const UCWCharacterControlData* CharacterControlData)
@@ -229,10 +236,11 @@ void ACWCharacterBase::SetupCharacterWidget(UCWUserWIdgetBase* InUserWidget)
 {
 	if (UCWUIHpBar* HpBarWideget = Cast<UCWUIHpBar>(InUserWidget))
 	{
-		HpBarWideget->SetMaxHp(_statComp->GetTotalStat().MaxHp);
+		HpBarWideget->UpdateStat(_statComp->GetBaseStat(), _statComp->GetModifierStat());
 		HpBarWideget->UpdateHpBar(_statComp->GetCurrentHp());
 
 		_statComp->_onHpChangedDelegate.AddUObject(HpBarWideget, &UCWUIHpBar::UpdateHpBar);
+		_statComp->_onStatChangedDeletage.AddUObject(HpBarWideget, &UCWUIHpBar::UpdateStat);
 	}
 }
 
@@ -314,6 +322,10 @@ void ACWCharacterBase::PlayDeadAnimation()
 void ACWCharacterBase::DrinkPotion(UCWItemData* InItemData)
 {
 	UE_LOG(LogCWCharacter, Log, TEXT("DrinkPotion"));
+	if (UCWPotionItemData* PotionItemData = Cast<UCWPotionItemData>(InItemData))
+	{
+		_statComp->HealHP(PotionItemData->GetHealAmount());
+	}
 }
 
 void ACWCharacterBase::EquipWeapon(UCWItemData* InItemData)
@@ -340,4 +352,9 @@ void ACWCharacterBase::EquipWeapon(UCWItemData* InItemData)
 void ACWCharacterBase::ReadScroll(UCWItemData* InItemData)
 {
 	UE_LOG(LogCWCharacter, Log, TEXT("ReadScroll"));
+
+	if (UCWScrollItemData* ScrollItemData = Cast< UCWScrollItemData>(InItemData))
+	{
+		_statComp->AddBaseStat(ScrollItemData->GetBaseStat());
+	}
 }

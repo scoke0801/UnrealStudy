@@ -5,26 +5,27 @@
 #include "CoreMinimal.h"
 #include "BasicTest/Data/CWItemData.h"
 #include "BasicTest/Data/CWCharacterStat.h"
-#include "CWWeaponItemData.generated.h"
+#include "CWScrollItemData.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class UCWWeaponItemData : public UCWItemData
+class UCWScrollItemData : public UCWItemData
 {
 	GENERATED_BODY()
 	
-public:
-	UPROPERTY(EditAnywhere, Category = Weapon)
-	TSoftObjectPtr<USkeletalMesh> _weaponMesh;
-	
-	UPROPERTY(EditAnywhere, Category = Weapon)
-	FCWCharacterStat _modifierStat;
+protected:
+	UPROPERTY(EditAnywhere, Category = Stat)
+	FCWCharacterStat _baseStat;
 
 public:
-	UCWWeaponItemData();
+	UCWScrollItemData();
 
 public:
 	FPrimaryAssetId GetPrimaryAssetId() const override;
+
+public:
+	FORCEINLINE const FCWCharacterStat& GetBaseStat() const { return _baseStat; }
+	
 };

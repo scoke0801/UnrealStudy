@@ -44,6 +44,11 @@ void ACWNonPlayer::SetDead()
 {
 	Super::SetDead();
 
+	if (ACWAIController* AIController = Cast<ACWAIController>(GetController()))
+	{
+		AIController->StopAI();
+	}
+
 	FTimerHandle DeadTimerHandle;
 	GetWorld()->GetTimerManager().SetTimer(DeadTimerHandle, FTimerDelegate::CreateLambda(
 		[&]()

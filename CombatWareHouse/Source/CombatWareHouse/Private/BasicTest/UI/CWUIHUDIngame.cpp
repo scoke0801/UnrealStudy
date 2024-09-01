@@ -16,7 +16,7 @@ void UCWUIHUDIngame::UpdateStat(const FCWCharacterStat& InBaseStat, const FCWCha
 {
 	FCWCharacterStat TotalSTat = InBaseStat + InModifierStat;
 
-	_hpBar->SetMaxHp(TotalSTat.MaxHp);
+	_hpBar->UpdateStat(InBaseStat, InModifierStat);
 	
 	_characterStat->UpdateStat(InBaseStat, InModifierStat);
 }

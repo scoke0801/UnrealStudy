@@ -3,6 +3,7 @@
 
 #include "BasicTest/UI/CWUIHpBar.h"
 #include "Components/ProgressBar.h"
+#include "Components/TextBlock.h"
 #include "Interface/CWCharacterWidgetInterface.h"
 
 
@@ -27,9 +28,30 @@ void UCWUIHpBar::NativeConstruct()
 void UCWUIHpBar::UpdateHpBar(float InHp)
 {
 	// ensure(InHp > 0.0f);
+	_currentHp = InHp;
 
 	if (_hpProgressBar)
 	{
 		_hpProgressBar->SetPercent(InHp / _maxHp);
 	}
+
+	if (_txtHp)
+	{
+		_txtHp->SetText(FText::FromString(GetHpStatText()));
+	}
+}
+
+void UCWUIHpBar::UpdateStat(const FCWCharacterStat& InBaseStat, const FCWCharacterStat& InModifierStat)
+{
+	_maxHp = (InBaseStat + InModifierStat).MaxHp;
+
+	if (_hpProgressBar)
+	{
+		_hpProgressBar->SetPercent(_currentHp / _maxHp);
+	}
+}
+
+FString UCWUIHpBar::GetHpStatText()
+{
+	return FString::Printf(TEXT("%.0f/%0.f"), _currentHp, _maxHp);
 }
