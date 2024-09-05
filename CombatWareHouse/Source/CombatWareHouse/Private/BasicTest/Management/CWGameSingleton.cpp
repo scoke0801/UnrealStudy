@@ -3,6 +3,8 @@
 
 #include "BasicTest/Management/CWGameSingleton.h"
 
+#include "BasicTest/Data/CWCharacterStat.h"
+
 DEFINE_LOG_CATEGORY(LogCWGameSingleton);
 
 UCWGameSingleton::UCWGameSingleton()
@@ -25,6 +27,21 @@ UCWGameSingleton::UCWGameSingleton()
 
 	_characterMaxLevel = _characterStatTable.Num();
 	ensure(_characterMaxLevel > 0);
+
+
+#if WITH_EDITOR
+	static ConstructorHelpers::FObjectFinder<UDataTable> DataTable(TEXT("/Game/Data/DataTable/DT_CharacterStat.DT_CharacterStat"));
+	if (DataTable.Object)
+	{
+		TArray<FCWCharacterStat*> TableRowArr;
+		DataTable.Object->GetAllRows< FCWCharacterStat>(TEXT("GetAllRows"), TableRowArr);
+
+		for (auto row : TableRowArr)
+		{
+
+		}
+	}
+#endif
 }
 
 UCWGameSingleton& UCWGameSingleton::Get()
