@@ -10,11 +10,7 @@ UCLASS()
 class OBSTACLEASSAULT_API AMoveingPlatform : public AActor
 {
 	GENERATED_BODY()
-	
-protected:
-    UPROPERTY(EditAnywhere)
-    FVector _vectorVar;
-		
+	 
 public:	
 	// Sets default values for this actor's properties
 	AMoveingPlatform();
