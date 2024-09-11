@@ -20,6 +20,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, Category = "Moving Platform")
 	float _distanceMoved = 0.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Moving Platform")
+	float _moveDistance = 100.0f;
 	
 public:	
 	// Sets default values for this actor's properties
