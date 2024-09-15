@@ -11,7 +11,7 @@ class OBSTACLEASSAULT_API AMoveingPlatform : public AActor
 {
 	GENERATED_BODY()
 
-public:
+private:
 	FVector _startLocation;
 	
 protected:
@@ -36,4 +36,7 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
+private:
+	void MovePlatform(float InDeltaTIme);
+	void RotatePlatform(float InDeltaTime);
 };
