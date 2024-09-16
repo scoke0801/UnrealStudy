@@ -18,11 +18,11 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Moving Platform")
 	FVector _platformVelocity = FVector(100,0,0);
 
-	UPROPERTY(VisibleAnywhere, Category = "Moving Platform")
-	float _distanceMoved = 0.0f;
-
 	UPROPERTY(EditAnywhere, Category = "Moving Platform")
 	float _moveDistance = 100.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Rotation Platform")
+	FRotator _rotationVelocity = FRotator::ZeroRotator;
 	
 public:	
 	// Sets default values for this actor's properties
@@ -39,4 +39,7 @@ public:
 private:
 	void MovePlatform(float InDeltaTIme);
 	void RotatePlatform(float InDeltaTime);
+
+	bool ShouldPlatformReturn() const;
+	float GetMoveDistance() const;
 };
