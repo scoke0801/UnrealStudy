@@ -2,9 +2,9 @@
 
 using UnrealBuildTool;
 
-public class PluginTest_5_4_4 : ModuleRules
+public class PluginTest : ModuleRules
 {
-	public PluginTest_5_4_4(ReadOnlyTargetRules Target) : base(Target)
+	public PluginTest(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
