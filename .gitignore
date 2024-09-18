@@ -85,3 +85,4 @@
 **/.env
 **/Plugins
 **/.idea
+**/.sentry-native
