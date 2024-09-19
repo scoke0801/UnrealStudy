@@ -6,6 +6,7 @@
 #include "Blueprint/UserWidget.h"
 #include "UI_SentryDemo.generated.h"
 
+class USentryScope;
 class UButton;
 class UComboBoxString;
 
@@ -70,4 +71,11 @@ protected:
 	
 	UFUNCTION()
 	void OnClickedPerformance2();
+
+private:
+	UFUNCTION()
+	void OnConfigureScope(USentryScope* InScope);
+
+	UFUNCTION()
+	void OnEventConfigureScope(USentryScope* InScope);
 };

@@ -7,6 +7,7 @@
 #include "SentryId.h"
 #include "SentryLibrary.h"
 #include "SentrySubsystem.h"
+#include "SentryDataTypes.h"
 
 #include "Components/Button.h"
 #include "Components/ComboBox.h"
@@ -49,8 +50,9 @@ void UUI_SentryDemo::NativeConstruct()
 		TMap<FString, FString> Data;
 		Data.Emplace("Mood", "Serious");
 		Data.Emplace("Look", "Good");
-		
-		USentryUser* User = USentryLibrary::CreateSentryUser("test@sentry.com", "123456789", "Demouser", "127.0.0.1", Data);
+
+		// 여기에 실제 유저 정보가 들어가기만 하면 되나??
+		USentryUser* User = USentryLibrary::CreateSentryUser("UserTest@gmail.com", "userTest", "PluginTest", "127.0.0.1", Data);
 
 		SentrySubsystem->SetUser(User);
 	}
@@ -70,6 +72,17 @@ void UUI_SentryDemo::OnClickedCaptureMessage()
 
 void UUI_SentryDemo::OnClickedCaptureMessageWithScope()
 {
+	if(USentrySubsystem* SentrySubsystem = GEngine->GetEngineSubsystem<USentrySubsystem>())
+	{
+		if(SentrySubsystem->IsEnabled())
+		{
+			FConfigureScopeDelegate ConfigureScopeDelegate;
+			ConfigureScopeDelegate.BindDynamic(this, &UUI_SentryDemo::OnConfigureScope);
+			
+			SentrySubsystem->CaptureMessageWithScope(TEXT("Scoped Message Comes In!"), ConfigureScopeDelegate, ESentryLevel::Info);
+			UE_LOG(LogTemp, Display, TEXT("Capture Message"));
+		}
+	}
 }
 
 void UUI_SentryDemo::OnClickedScopeConfigure()
@@ -93,11 +106,28 @@ void UUI_SentryDemo::OnClickedCaptureEvent()
 			SentrySubsystem->CaptureUserFeedbackWithParams(Id, "test@sentry.com", "Wow! What an event has just occured!", "TestUser");
 		}
 	}
-	
 }
 
 void UUI_SentryDemo::OnClickedCaptureEventWithScope()
 {
+	USentryEvent* Event = NewObject<USentryEvent>();
+	if(nullptr == Event)
+	{
+		return;
+	}
+
+	Event->SetMessage("Message for Scoped event");
+	if(USentrySubsystem* SentrySubsystem = GEngine->GetEngineSubsystem<USentrySubsystem>())
+	{
+		if(SentrySubsystem->IsEnabled())
+		{
+			FConfigureScopeDelegate ConfigureScopeDelegate;
+			ConfigureScopeDelegate.BindDynamic(this, &UUI_SentryDemo::OnEventConfigureScope);
+			USentryId* Id = SentrySubsystem->CaptureEventWithScope(Event, ConfigureScopeDelegate);
+
+			SentrySubsystem->CaptureUserFeedbackWithParams(Id, "test@sentry.com", "Wow! What an event has just occured!", "TestUser");
+		}
+	}
 }
 
 void UUI_SentryDemo::OnCLickedTerminate()
@@ -112,4 +142,33 @@ void UUI_SentryDemo::OnClickedPerformance()
 
 void UUI_SentryDemo::OnClickedPerformance2()
 {
+}
+
+void UUI_SentryDemo::OnConfigureScope(USentryScope* InScope)
+{
+	TMap<FString, FString> TagMap;
+	TagMap.Emplace("Test", "Test");
+	
+	InScope->SetTags(TagMap);
+
+	InScope->SetEnvironment("Production");
+
+	InScope->SetLevel(ESentryLevel::Fatal);
+
+	// Attachment
+	{
+		TArray<uint8> ByteArary = USentryLibrary::StringToBytesArray("Test Sentry attachment bytes");
+		USentryAttachment* Attachment = USentryLibrary::CreateSentryAttachmentWithData(ByteArary, "DemoByteAttachment.txt", "application/octet-stream");
+
+		InScope->AddAttachment(Attachment);
+	}
+}
+
+void UUI_SentryDemo::OnEventConfigureScope(USentryScope* InScope)
+{
+	InScope->SetTagValue("Zero", "Dawn");
+	InScope->SetLevel(ESentryLevel::Error);
+
+	USentryLibrary::SaveStringToFile("Test Sentry attachment file content.", "DemoFileAttachment.txt");
+	InScope->AddAttachment(USentryLibrary::CreateSentryAttachmentWithPath("DemoFileAttachment.txt", "application/octet-stream"));
 }
