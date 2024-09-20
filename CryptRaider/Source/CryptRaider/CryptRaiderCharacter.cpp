@@ -1,7 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
-#include "CryptRiderCharacter.h"
-#include "CryptRiderProjectile.h"
+#include "CryptRaiderCharacter.h"
+#include "CryptRaiderProjectile.h"
 #include "Animation/AnimInstance.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -14,9 +14,9 @@
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
 //////////////////////////////////////////////////////////////////////////
-// ACryptRiderCharacter
+// ACryptRaiderCharacter
 
-ACryptRiderCharacter::ACryptRiderCharacter()
+ACryptRaiderCharacter::ACryptRaiderCharacter()
 {
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(55.f, 96.0f);
@@ -38,7 +38,7 @@ ACryptRiderCharacter::ACryptRiderCharacter()
 
 }
 
-void ACryptRiderCharacter::BeginPlay()
+void ACryptRaiderCharacter::BeginPlay()
 {
 	// Call the base class  
 	Super::BeginPlay();
@@ -46,7 +46,7 @@ void ACryptRiderCharacter::BeginPlay()
 
 //////////////////////////////////////////////////////////////////////////// Input
 
-void ACryptRiderCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+void ACryptRaiderCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {	
 	// Set up action bindings
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent))
@@ -56,10 +56,10 @@ void ACryptRiderCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
 
 		// Moving
-		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ACryptRiderCharacter::Move);
+		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ACryptRaiderCharacter::Move);
 
 		// Looking
-		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ACryptRiderCharacter::Look);
+		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ACryptRaiderCharacter::Look);
 	}
 	else
 	{
@@ -68,7 +68,7 @@ void ACryptRiderCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 }
 
 
-void ACryptRiderCharacter::Move(const FInputActionValue& Value)
+void ACryptRaiderCharacter::Move(const FInputActionValue& Value)
 {
 	// input is a Vector2D
 	FVector2D MovementVector = Value.Get<FVector2D>();
@@ -81,7 +81,7 @@ void ACryptRiderCharacter::Move(const FInputActionValue& Value)
 	}
 }
 
-void ACryptRiderCharacter::Look(const FInputActionValue& Value)
+void ACryptRaiderCharacter::Look(const FInputActionValue& Value)
 {
 	// input is a Vector2D
 	FVector2D LookAxisVector = Value.Get<FVector2D>();

@@ -2,9 +2,9 @@
 
 using UnrealBuildTool;
 
-public class CryptRider : ModuleRules
+public class CryptRaider : ModuleRules
 {
-	public CryptRider(ReadOnlyTargetRules Target) : base(Target)
+	public CryptRaider(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 

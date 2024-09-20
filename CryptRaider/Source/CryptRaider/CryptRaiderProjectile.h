@@ -4,13 +4,13 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "CryptRiderProjectile.generated.h"
+#include "CryptRaiderProjectile.generated.h"
 
 class USphereComponent;
 class UProjectileMovementComponent;
 
 UCLASS(config=Game)
-class ACryptRiderProjectile : public AActor
+class ACryptRaiderProjectile : public AActor
 {
 	GENERATED_BODY()
 
@@ -23,7 +23,7 @@ class ACryptRiderProjectile : public AActor
 	UProjectileMovementComponent* ProjectileMovement;
 
 public:
-	ACryptRiderProjectile();
+	ACryptRaiderProjectile();
 
 	/** called when projectile hits something */
 	UFUNCTION()

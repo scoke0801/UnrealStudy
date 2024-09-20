@@ -1,11 +1,11 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 
-#include "CryptRiderPlayerController.h"
+#include "CryptRaiderPlayerController.h"
 #include "EnhancedInputSubsystems.h"
 #include "Engine/LocalPlayer.h"
 
-void ACryptRiderPlayerController::BeginPlay()
+void ACryptRaiderPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 

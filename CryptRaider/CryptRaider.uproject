@@ -5,7 +5,7 @@
 	"Description": "",
 	"Modules": [
 		{
-			"Name": "CryptRider",
+			"Name": "CryptRaider",
 			"Type": "Runtime",
 			"LoadingPhase": "Default"
 		}

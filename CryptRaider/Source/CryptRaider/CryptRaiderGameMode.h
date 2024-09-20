@@ -4,15 +4,15 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
-#include "CryptRiderGameMode.generated.h"
+#include "CryptRaiderGameMode.generated.h"
 
 UCLASS(minimalapi)
-class ACryptRiderGameMode : public AGameModeBase
+class ACryptRaiderGameMode : public AGameModeBase
 {
 	GENERATED_BODY()
 
 public:
-	ACryptRiderGameMode();
+	ACryptRaiderGameMode();
 };
 
 

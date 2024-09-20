@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "Logging/LogMacros.h"
-#include "CryptRiderCharacter.generated.h"
+#include "CryptRaiderCharacter.generated.h"
 
 class UInputComponent;
 class USkeletalMeshComponent;
@@ -17,7 +17,7 @@ struct FInputActionValue;
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
 
 UCLASS(config=Game)
-class ACryptRiderCharacter : public ACharacter
+class ACryptRaiderCharacter : public ACharacter
 {
 	GENERATED_BODY()
 
@@ -38,7 +38,7 @@ class ACryptRiderCharacter : public ACharacter
 	UInputAction* MoveAction;
 	
 public:
-	ACryptRiderCharacter();
+	ACryptRaiderCharacter();
 
 protected:
 	virtual void BeginPlay();

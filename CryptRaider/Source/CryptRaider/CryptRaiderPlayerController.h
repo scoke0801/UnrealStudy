@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
-#include "CryptRiderPlayerController.generated.h"
+#include "CryptRaiderPlayerController.generated.h"
 
 class UInputMappingContext;
 
@@ -12,7 +12,7 @@ class UInputMappingContext;
  *
  */
 UCLASS()
-class CRYPTRIDER_API ACryptRiderPlayerController : public APlayerController
+class CRYPTRAIDER_API ACryptRaiderPlayerController : public APlayerController
 {
 	GENERATED_BODY()
 	

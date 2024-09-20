@@ -3,13 +3,13 @@
 using UnrealBuildTool;
 using System.Collections.Generic;
 
-public class CryptRiderTarget : TargetRules
+public class CryptRaiderEditorTarget : TargetRules
 {
-	public CryptRiderTarget(TargetInfo Target) : base(Target)
+	public CryptRaiderEditorTarget(TargetInfo Target) : base(Target)
 	{
-		Type = TargetType.Game;
+		Type = TargetType.Editor;
 		DefaultBuildSettings = BuildSettingsVersion.V5;
 		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_4;
-		ExtraModuleNames.Add("CryptRider");
+		ExtraModuleNames.Add("CryptRaider");
 	}
 }

@@ -1,10 +1,10 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
-#include "CryptRiderGameMode.h"
-#include "CryptRiderCharacter.h"
+#include "CryptRaiderGameMode.h"
+#include "CryptRaiderCharacter.h"
 #include "UObject/ConstructorHelpers.h"
 
-ACryptRiderGameMode::ACryptRiderGameMode()
+ACryptRaiderGameMode::ACryptRaiderGameMode()
 	: Super()
 {
 	// set default pawn class to our Blueprinted character

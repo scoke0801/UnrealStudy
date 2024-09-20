@@ -2,8 +2,8 @@
 
 
 #include "TP_WeaponComponent.h"
-#include "CryptRiderCharacter.h"
-#include "CryptRiderProjectile.h"
+#include "CryptRaiderCharacter.h"
+#include "CryptRaiderProjectile.h"
 #include "GameFramework/PlayerController.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Kismet/GameplayStatics.h"
@@ -44,7 +44,7 @@ void UTP_WeaponComponent::Fire()
 			ActorSpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
 	
 			// Spawn the projectile at the muzzle
-			World->SpawnActor<ACryptRiderProjectile>(ProjectileClass, SpawnLocation, SpawnRotation, ActorSpawnParams);
+			World->SpawnActor<ACryptRaiderProjectile>(ProjectileClass, SpawnLocation, SpawnRotation, ActorSpawnParams);
 		}
 	}
 	
@@ -66,7 +66,7 @@ void UTP_WeaponComponent::Fire()
 	}
 }
 
-bool UTP_WeaponComponent::AttachWeapon(ACryptRiderCharacter* TargetCharacter)
+bool UTP_WeaponComponent::AttachWeapon(ACryptRaiderCharacter* TargetCharacter)
 {
 	Character = TargetCharacter;
 
