@@ -4,9 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "Styling/SlateTypes.h"
 #include "UIHUDTest.generated.h"
 
 class UButton;
+class UEditableText;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogJH, Log, All);
 /**
@@ -28,6 +30,8 @@ protected:
 	UPROPERTY(EditAnywhere, Category = UI,Meta = (BindWidget))
 	UButton* _endButton;
 
+	UPROPERTY(EditAnywhere, Category = UI, Meta = (BindWidget))
+	UEditableText* _editableText;
 public:
 	virtual void NativeOnInitialized() override;
 
@@ -39,4 +43,7 @@ private:
 
 	UFUNCTION()
 	void OnClicedEndButtion();
+
+	UFUNCTION()
+	void OnTextCommited(const FText& Text, ETextCommit::Type CommitMethod);
 };

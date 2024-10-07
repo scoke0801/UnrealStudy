@@ -4,7 +4,7 @@
 #include "CombatWareHouse/UI/UIHUDTest.h"
 
 #include "Components/Button.h"
-
+#include "Components/EditableText.h"
 DEFINE_LOG_CATEGORY(LogJH);
 
 void UUIHUDTest::NativeOnInitialized() 
@@ -13,6 +13,8 @@ void UUIHUDTest::NativeOnInitialized()
 
 	_startButton->OnClicked.AddDynamic(this, &UUIHUDTest::OnClickedStartButton);
 	_endButton->OnClicked.AddDynamic(this, &UUIHUDTest::OnClicedEndButtion);
+
+	_editableText->OnTextCommitted.AddDynamic(this, &UUIHUDTest::OnTextCommited);
 }
 
 void UUIHUDTest::Process()
@@ -50,4 +52,12 @@ void UUIHUDTest::OnClicedEndButtion()
 	_isRunning = false;
 	
 	UE_LOG(LogJH, Display, TEXT("OnClicedEndButtion()"));
+}
+
+void UUIHUDTest::OnTextCommited(const FText& Text, ETextCommit::Type CommitMethod)
+{
+	if (ETextCommit::Type::OnCleared == CommitMethod)
+	{
+		_editableText->SetFocus();
+	}
 }
