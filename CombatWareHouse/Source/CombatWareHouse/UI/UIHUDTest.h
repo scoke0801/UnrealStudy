@@ -9,6 +9,7 @@
 
 class UButton;
 class UEditableText;
+class UEditableTextBox;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogJH, Log, All);
 /**
@@ -32,6 +33,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = UI, Meta = (BindWidget))
 	UEditableText* _editableText;
+
+	UPROPERTY(EditAnywhere, Category = UI, Meta = (BindWidget))
+	UEditableTextBox* _editableTextBox;
 public:
 	virtual void NativeOnInitialized() override;
 
@@ -46,4 +50,7 @@ private:
 
 	UFUNCTION()
 	void OnTextCommited(const FText& Text, ETextCommit::Type CommitMethod);
+
+	UFUNCTION()
+	void OnTextCommitedBox(const FText& Text, ETextCommit::Type CommitMethod);
 };

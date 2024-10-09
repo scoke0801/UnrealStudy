@@ -5,6 +5,8 @@
 
 #include "Components/Button.h"
 #include "Components/EditableText.h"
+#include "Components/EditableTextBox.h"
+
 DEFINE_LOG_CATEGORY(LogJH);
 
 void UUIHUDTest::NativeOnInitialized() 
@@ -15,6 +17,7 @@ void UUIHUDTest::NativeOnInitialized()
 	_endButton->OnClicked.AddDynamic(this, &UUIHUDTest::OnClicedEndButtion);
 
 	_editableText->OnTextCommitted.AddDynamic(this, &UUIHUDTest::OnTextCommited);
+	_editableTextBox->OnTextCommitted.AddDynamic(this, &UUIHUDTest::OnTextCommitedBox);
 }
 
 void UUIHUDTest::Process()
@@ -59,5 +62,13 @@ void UUIHUDTest::OnTextCommited(const FText& Text, ETextCommit::Type CommitMetho
 	if (ETextCommit::Type::OnCleared == CommitMethod)
 	{
 		_editableText->SetFocus();
+	}
+}
+
+void UUIHUDTest::OnTextCommitedBox(const FText& Text, ETextCommit::Type CommitMethod)
+{
+	if (ETextCommit::Type::OnCleared == CommitMethod)
+	{
+		_editableTextBox->SetFocus();
 	}
 }
