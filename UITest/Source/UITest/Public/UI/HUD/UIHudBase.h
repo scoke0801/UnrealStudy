@@ -4,16 +4,16 @@
 
 #include "CoreMinimal.h"
 #include "UI/GameWidgetBase.h"
-#include "UIPopupBase.generated.h"
+#include "UIHudBase.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class UITEST_API UUIPopupBase : public UGameWidgetBase
+class UITEST_API UUIHudBase : public UGameWidgetBase
 {
 	GENERATED_BODY()
-
+	
 protected:
-	UUIPopupBase(const FObjectInitializer& ObjectInitializer);
+	UUIHudBase(const FObjectInitializer& ObjectInitializer);
 };

@@ -13,5 +13,7 @@ UCLASS()
 class UITEST_API UUIWindowBase : public UGameWidgetBase
 {
 	GENERATED_BODY()
-	
+
+protected:
+	UUIWindowBase(const FObjectInitializer& ObjectInitializer);
 };

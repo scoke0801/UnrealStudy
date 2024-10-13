@@ -4,66 +4,52 @@
 
 #include "CoreMinimal.h"
 
+#include "ManagerBase.h"
 #include "Data/DTWidgetPath.h"
+#include "Common/UICommon.h"
 #include "UI/GameWidgetBase.h"
 
-UPROPERTY(EBlueprintType)
-enum class EUIType
-{
-	None,
-
-	HUD,
-
-	Window,
-
-	Popup,
-
-	Max,
-};
-#define UPTR TObjectPtr
 /**
  * 
  */
-class UITEST_API UIManager
-{
+class UITEST_API UIManager : public UManagerBase
+{ 
 private:
 	TMap<EUIType, TArray<TObjectPtr<UGameWidgetBase>>> _uiMap;
 
 public:
 	UIManager();
-	~UIManager();
-
+	virtual ~UIManager();
 public:
 	template<typename WidgetType>
-	TObjectPtr<UGameWidgetBase> GetOrCreateWidget(const FString WidgetName);
+	WidgetType* OpenWIdget(const FString WidgetName);
 };
 
 template<typename WidgetType>
-inline TObjectPtr<UGameWidgetBase> UIManager::GetOrCreateWidget(const FString WidgetName)
+inline WidgetType* UIManager::OpenWIdget(const FString WidgetName)
 {
-	static ConstructorHelpers::FObjectFinder<UDataTable> DTWidgetPath(TEXT("/Game/Data/DTWidgetPath.DTWidgetPath"));
-
-	if (TObjectPtr<UDataTable> WidgetPathTable = DTWidgetPath.Object)
+	if (UDataTable* DataTable = LoadObject<UDataTable>(nullptr, TEXT("/Script/Engine.DataTable'/Game/Data/DTWidgetPath.DTWidgetPath'")))
 	{
 		TArray<FBSWIdgetPath*> Rows;
-		WidgetPathTable->GetAllRows<FBSWIdgetPath>(TEXT("GetAllRows"), Rows);
-
+		DataTable->GetAllRows<FBSWIdgetPath>(TEXT("GetAllRows"), Rows);
+		 
 		for (FBSWIdgetPath* Row : Rows)
 		{
 			if (WidgetName == Row->WidgetName)
 			{
-				FStringClassReference ClassRef(Row->WidgetName);
+				FStringClassReference ClassRef(Row->Path.ToString());
 				if (UClass* WidgetClass = ClassRef.TryLoadClass<WidgetType>())
 				{
-					if (WidgetType* Widget = CreateWidget<WidgetType>(this, WidgetClass))
+					if (WidgetType* Widget = CreateWidget<WidgetType>(GetWorld()->GetFirstPlayerController(), WidgetClass))
 					{
 						Widget->AddToViewport();
-					}	
+						return Widget;
+					}
 				}
 			}
 		}
 	}
-
 	return nullptr;
-
 }
+
+#define UI() GetGameInstance()->GetSubsystem<UIManager>()

@@ -3,20 +3,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "UObject/Interface.h"
 #include "ManagerBase.generated.h"
-
-// This class does not need to be modified.
-UINTERFACE(MinimalAPI)
-class UManagerBase : public UInterface
-{
-	GENERATED_BODY()
-};
 
 /**
  * 
  */
-class UITEST_API IManagerBase
+UCLASS()
+class UITEST_API UManagerBase : public UGameInstanceSubsystem
 {
 	GENERATED_BODY()
 

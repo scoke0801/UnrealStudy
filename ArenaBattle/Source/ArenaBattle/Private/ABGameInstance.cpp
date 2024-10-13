@@ -21,3 +21,4 @@ FABCharacterData* UABGameInstance::GetABCharacterData(int32 Level)
 {
 	return ABCharacterTable->FindRow<FABCharacterData>(*FString::FromInt(Level), TEXT(""));
 }
+	

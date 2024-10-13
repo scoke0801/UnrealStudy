@@ -3,3 +3,8 @@
 
 #include "UI/Popup/UIPopupBase.h"
 
+UUIPopupBase::UUIPopupBase(const FObjectInitializer& ObjectInitializer)
+	:Super(ObjectInitializer)
+{
+	_uiType = EUIType::Popup;
+}

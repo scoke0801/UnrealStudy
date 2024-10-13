@@ -3,3 +3,8 @@
 
 #include "UI/Window/UIWindowBase.h"
 
+UUIWindowBase::UUIWindowBase(const FObjectInitializer& ObjectInitializer)
+	:Super(ObjectInitializer)
+{
+	_uiType = EUIType::Window;
+}

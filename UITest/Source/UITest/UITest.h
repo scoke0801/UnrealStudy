@@ -4,3 +4,4 @@
 
 #include "CoreMinimal.h"
 
+#define UPTR TObjectPtr
