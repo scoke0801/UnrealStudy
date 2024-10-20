@@ -6,6 +6,8 @@
 #include "UI/HUD/UIHudBase.h"
 #include "UIHudTest.generated.h"
 
+class UEditableTextBox;
+
 /**
  * 
  */
@@ -14,6 +16,46 @@ class UITEST_API UUIHudTest : public UUIHudBase
 {
 	GENERATED_BODY()
 	
-protected: 
+protected:
+	UPROPERTY(EditAnywhere, Category = "UI", Meta = (BindWidget))
+	UEditableTextBox* _editableTextBox1;
+
+	UPROPERTY(EditAnywhere, Category = "UI", Meta = (BindWidget))
+	UEditableTextBox* _editableTextBox2;
+
+	UPROPERTY(EditAnywhere, Category = "UI")
+	TSubclassOf<class UUserWidget> _valueTextClass;
+
+	UPROPERTY(Transient)
+	TObjectPtr<AActor> _targetActor = nullptr;
+
+	TMap<int32, FVector2D> _locationMap;
+
+private:
+	bool _isStarted = false;
+
+	double _elapsedTime = 0.0f;
+
+protected:
+	virtual void NativeOnInitialized() override;
 	virtual void NativeConstruct() override;
+	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
+
+private:
+	UFUNCTION()
+	void OnTextCommittedText_1(const FText& Text, ETextCommit::Type CommitMethod);
+	
+	UFUNCTION()
+	void OnTextCommittedText_2(const FText& Text, ETextCommit::Type CommitMethod);
+
+private:
+	void FindActorByBame(FName InTargetName);
+
+	FVector GetLocationOfActorSocket(FName InSocketName);
+
+	void AddTextValueWidget(int32 InValue);
+
+	void OnRemoveNotify(int32 InKeyValue);
+
+	FVector2D GenerateRandLocation(const FVector2D InBaseLocation) const;
 };

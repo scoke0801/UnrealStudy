@@ -13,6 +13,8 @@ enum class EUIType : uint8
 	Window,
 
 	Popup,
+	
+	Billboard,
 
 	Max,
 };
