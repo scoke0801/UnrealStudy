@@ -16,6 +16,11 @@ class UITEST_API UUIHudTest : public UUIHudBase
 {
 	GENERATED_BODY()
 	
+	struct CachedLocationInfo
+	{
+		TWeakObjectPtr<class UUserWidget> _widget;
+		FVector2D _location;
+	};
 protected:
 	UPROPERTY(EditAnywhere, Category = "UI", Meta = (BindWidget))
 	UEditableTextBox* _editableTextBox1;
@@ -29,7 +34,7 @@ protected:
 	UPROPERTY(Transient)
 	TObjectPtr<AActor> _targetActor = nullptr;
 
-	TMap<int32, FVector2D> _locationMap;
+	TMap<int32, CachedLocationInfo> _locationMap;
 
 private:
 	bool _isStarted = false;

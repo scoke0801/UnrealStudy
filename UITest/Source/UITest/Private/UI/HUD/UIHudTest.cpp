@@ -16,6 +16,10 @@
 #include "GameFramework/Actor.h"
 #include "GameFramework/PlayerController.h"
 
+#include "Blueprint/WidgetLayoutLibrary.h"
+#include "Components/CanvasPanelSlot.h"
+#include "Kismet/KismetMathLibrary.h"
+
 void UUIHudTest::NativeOnInitialized()
 {
 	Super::NativeOnInitialized();
@@ -129,7 +133,7 @@ void UUIHudTest::AddTextValueWidget(int32 InValue)
 
 		Widget->OnRemoveNotify.BindUObject(this, &UUIHudTest::OnRemoveNotify);
 
-		_locationMap.Emplace(Widget->GetUniqueID(), screenLocation);
+		_locationMap.Emplace(Widget->GetUniqueID(), { Widget, screenLocation });
 	}
 }
 
@@ -145,34 +149,39 @@ FVector2D UUIHudTest::GenerateRandLocation(const FVector2D InBaseLocation) const
 	int32 tryCount = 0;
 	
 	float baseRandSize = 20;
-	float randSize = 20;
+	FVector2D randSize = { 50 * 3, 25 * 3};
 
 	do
 	{
 		// 화면 내에서 랜덤한 위치 생성
-		RandomPosition.X = InBaseLocation.X + FMath::FRandRange(-randSize * 0.5f, randSize * 0.5f);
-		RandomPosition.Y = InBaseLocation.Y + FMath::FRandRange(0, randSize);
+		RandomPosition.X = InBaseLocation.X + FMath::FRandRange(-randSize.X * 0.5f, randSize.X * 0.5f);
+		RandomPosition.Y = InBaseLocation.Y + FMath::FRandRange(0, randSize.Y);
 
 		bIsOverlapping = false;
 
 		for (auto Pair : _locationMap)
 		{
-			FVector2D ExistingPosition = Pair.Value;
+			FVector2D ExistingPosition = Pair.Value._location;
+			FVector2D ExistingSize = randSize;
+			if (Pair.Value._widget.IsValid())
+			{
+				FVector2D size = Pair.Value._widget->GetCachedGeometry().GetLocalSize();
+				if (size.IsZero() == false)
+				{
+					ExistingSize = size;
+				}
+			}
 
-			if (FMath::Abs(RandomPosition.X - ExistingPosition.X) < (randSize) / 2 &&
-				FMath::Abs(RandomPosition.Y - ExistingPosition.Y) < (randSize) / 2)
+			if (FMath::Abs(RandomPosition.X - ExistingPosition.X) < ExistingSize.X  &&
+				FMath::Abs(RandomPosition.Y - ExistingPosition.Y) < ExistingSize.Y )
 			{
 				bIsOverlapping = true;
 				break;
 			}
 
-			float Dist = FVector2D::Distance(Pair.Value, RandomPosition);
 		}
 
 		++tryCount;
-
-		// 영역 크기 키우기
-		randSize = FMath::Min(randSize + 2, 100);
 	} while (bIsOverlapping && tryCount < 100);  // 겹치지 않을 때까지 반복
 
 	return RandomPosition;

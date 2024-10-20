@@ -26,7 +26,6 @@ protected:
 
 protected:
 	virtual void NativeConstruct() override;
-
 public:
 	void SetValueText(const int32 InValue);
 
