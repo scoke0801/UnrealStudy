@@ -8,8 +8,7 @@ public class CryptRaiderEditorTarget : TargetRules
 	public CryptRaiderEditorTarget(TargetInfo Target) : base(Target)
 	{
 		Type = TargetType.Editor;
-		DefaultBuildSettings = BuildSettingsVersion.V5;
-		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_4;
+		DefaultBuildSettings = BuildSettingsVersion.V2;
 		ExtraModuleNames.Add("CryptRaider");
 	}
 }

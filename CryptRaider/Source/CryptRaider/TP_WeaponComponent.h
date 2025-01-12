@@ -3,15 +3,21 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Components/SkeletalMeshComponent.h"
+#include "Components/ActorComponent.h"
+#include "Components/SphereComponent.h"
 #include "TP_WeaponComponent.generated.h"
 
 class ACryptRaiderCharacter;
+class USkeletalMeshComponent;
+class USceneComponent;
 
 UCLASS(Blueprintable, BlueprintType, ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
-class CRYPTRAIDER_API UTP_WeaponComponent : public USkeletalMeshComponent
+class CRYPTRAIDER_API UTP_WeaponComponent : public USphereComponent
 {
 	GENERATED_BODY()
+	/** Sphere collision to do Pick up */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Mesh, meta = (AllowPrivateAccess = "true"))
+	USphereComponent* SphereCollision;
 
 public:
 	/** Projectile class to spawn */
@@ -30,29 +36,20 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Gameplay)
 	FVector MuzzleOffset;
 
-	/** MappingContext */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
-	class UInputMappingContext* FireMappingContext;
-
-	/** Fire Input Action */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
-	class UInputAction* FireAction;
-
-	/** Sets default values for this component's properties */
+	// Sets default values for this component's properties
 	UTP_WeaponComponent();
 
-	/** Attaches the actor to a FirstPersonCharacter */
-	UFUNCTION(BlueprintCallable, Category="Weapon")
-	bool AttachWeapon(ACryptRaiderCharacter* TargetCharacter);
-
-	/** Make the weapon Fire a Projectile */
+	// Make the weapon Fire a Projectile
 	UFUNCTION(BlueprintCallable, Category="Weapon")
 	void Fire();
 
 protected:
-	/** Ends gameplay for this component. */
+	// Called when the game starts
+	virtual void BeginPlay() override;
+
+	// Code for when something overlaps this component
 	UFUNCTION()
-	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	void OnSphereBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 private:
 	/** The Character holding this weapon*/

@@ -7,15 +7,11 @@
 #include "GameFramework/PlayerController.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Kismet/GameplayStatics.h"
-#include "EnhancedInputComponent.h"
-#include "EnhancedInputSubsystems.h"
-#include "Animation/AnimInstance.h"
-#include "Engine/LocalPlayer.h"
-#include "Engine/World.h"
 
 // Sets default values for this component's properties
 UTP_WeaponComponent::UTP_WeaponComponent()
 {
+	SphereRadius = 32.f;
 	// Default offset from the character location for projectiles to spawn
 	MuzzleOffset = FVector(100.0f, 0.0f, 10.0f);
 }
@@ -23,7 +19,7 @@ UTP_WeaponComponent::UTP_WeaponComponent()
 
 void UTP_WeaponComponent::Fire()
 {
-	if (Character == nullptr || Character->GetController() == nullptr)
+	if(Character == nullptr || Character->GetController() == nullptr)
 	{
 		return;
 	}
@@ -66,54 +62,29 @@ void UTP_WeaponComponent::Fire()
 	}
 }
 
-bool UTP_WeaponComponent::AttachWeapon(ACryptRaiderCharacter* TargetCharacter)
+// Called when the game starts
+void UTP_WeaponComponent::BeginPlay()
 {
-	Character = TargetCharacter;
+	Super::BeginPlay();
 
-	// Check that the character is valid, and has no weapon component yet
-	if (Character == nullptr || Character->GetInstanceComponents().FindItemByClass<UTP_WeaponComponent>())
-	{
-		return false;
-	}
-
-	// Attach the weapon to the First Person Character
-	FAttachmentTransformRules AttachmentRules(EAttachmentRule::SnapToTarget, true);
-	AttachToComponent(Character->GetMesh1P(), AttachmentRules, FName(TEXT("GripPoint")));
-
-	// add the weapon as an instance component to the character
-	Character->AddInstanceComponent(this);
-
-	// Set up action bindings
-	if (APlayerController* PlayerController = Cast<APlayerController>(Character->GetController()))
-	{
-		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
-		{
-			// Set the priority of the mapping to 1, so that it overrides the Jump action with the Fire action when using touch input
-			Subsystem->AddMappingContext(FireMappingContext, 1);
-		}
-
-		if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerController->InputComponent))
-		{
-			// Fire
-			EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Triggered, this, &UTP_WeaponComponent::Fire);
-		}
-	}
-
-	return true;
+	// Register our Overlap Event
+	OnComponentBeginOverlap.AddDynamic(this, &UTP_WeaponComponent::OnSphereBeginOverlap);
 }
 
-void UTP_WeaponComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+void UTP_WeaponComponent::OnSphereBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	if (Character == nullptr)
+	// Checking if it is a First Person Character overlapping
+	Character = Cast<ACryptRaiderCharacter>(OtherActor);
+	if(Character != nullptr)
 	{
-		return;
-	}
+		// Attach the weapon to the First Person Character
+		FAttachmentTransformRules AttachmentRules(EAttachmentRule::SnapToTarget, true);
+		GetOwner()->AttachToComponent(Character->GetMesh1P(),AttachmentRules, FName(TEXT("GripPoint")));
 
-	if (APlayerController* PlayerController = Cast<APlayerController>(Character->GetController()))
-	{
-		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
-		{
-			Subsystem->RemoveMappingContext(FireMappingContext);
-		}
+		// Unregister from the Overlap Event so it is no longer triggered
+		OnComponentBeginOverlap.RemoveAll(this);
+		// Register so that Fire is called every time the character tries to use the item being held
+		Character->OnItemUsed.AddDynamic(this, &UTP_WeaponComponent::Fire);
 	}
 }
+
