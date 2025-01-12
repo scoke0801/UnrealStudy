@@ -8,7 +8,8 @@ public class CryptRaiderTarget : TargetRules
 	public CryptRaiderTarget(TargetInfo Target) : base(Target)
 	{
 		Type = TargetType.Game;
-		DefaultBuildSettings = BuildSettingsVersion.V2;
-		ExtraModuleNames.Add("CryptRaider");
+		DefaultBuildSettings = BuildSettingsVersion.V5;
+        bOverrideBuildEnvironment = true;
+        ExtraModuleNames.Add("CryptRaider");
 	}
 }

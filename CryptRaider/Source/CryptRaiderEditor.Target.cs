@@ -8,7 +8,8 @@ public class CryptRaiderEditorTarget : TargetRules
 	public CryptRaiderEditorTarget(TargetInfo Target) : base(Target)
 	{
 		Type = TargetType.Editor;
-		DefaultBuildSettings = BuildSettingsVersion.V2;
-		ExtraModuleNames.Add("CryptRaider");
+		DefaultBuildSettings = BuildSettingsVersion.V5;
+        bOverrideBuildEnvironment = true;
+        ExtraModuleNames.Add("CryptRaider");
 	}
 }
