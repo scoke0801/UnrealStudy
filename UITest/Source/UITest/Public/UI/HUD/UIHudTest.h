@@ -54,7 +54,7 @@ private:
 	UFUNCTION()
 	void OnTextCommittedText_2(const FText& Text, ETextCommit::Type CommitMethod);
 
-	void OnListViewScrolledInternal(float ItemOffset, float DistanceRemaining);
+	void OnListViewScrolledInternal(float InOffset, float DistanceRemaining);
 
 private:
 	void FindActorByBame(FName InTargetName);

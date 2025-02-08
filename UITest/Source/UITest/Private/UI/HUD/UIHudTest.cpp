@@ -61,17 +61,17 @@ void UUIHudTest::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
 
-	if (false == _isStarted)
-	{
-		return;
-	}
-
-	_elapsedTime += InDeltaTime;
-	if (_elapsedTime > 0.1f)
-	{
-		_elapsedTime = 0.0f;
-		AddTextValueWidget(FMath::RandRange(1000, 9999));
-	}
+	// if (false == _isStarted)
+	// {
+	// 	return;
+	// }
+	//
+	// _elapsedTime += InDeltaTime;
+	// if (_elapsedTime > 0.1f)
+	// {
+	// 	_elapsedTime = 0.0f;
+	// 	AddTextValueWidget(FMath::RandRange(1000, 9999));
+	// }
 }
 
 void UUIHudTest::OnTextCommittedText_1(const FText& Text, ETextCommit::Type CommitMethod)
@@ -90,8 +90,12 @@ void UUIHudTest::OnTextCommittedText_2(const FText& Text, ETextCommit::Type Comm
 	}
 }
 
-void UUIHudTest::OnListViewScrolledInternal(float ItemOffset, float DistanceRemaining)
+void UUIHudTest::OnListViewScrolledInternal(float InOffset, float DistanceRemaining)
 {
+	int32 Offset = InOffset;
+	UE_LOG(LogTemp,Display, TEXT("OnListViewScrolledInternal - InOffset: %f, Offset: %d"), InOffset, Offset);
+
+	
 }
 
 void UUIHudTest::FindActorByBame(FName InTargetName)
@@ -125,7 +129,6 @@ FVector UUIHudTest::GetLocationOfActorSocket(FName InSocketName)
 
 void UUIHudTest::AddTextValueWidget(int32 InValue)
 {
-
 	APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
 	if (nullptr == PlayerController)
 	{

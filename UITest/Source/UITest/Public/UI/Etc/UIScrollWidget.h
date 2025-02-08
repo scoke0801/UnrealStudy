@@ -10,7 +10,7 @@
 class UListView;
 class UTextBlock;
 
-UCLASS()
+UCLASS(Meta=(DisableNativeTick))
 class UITEST_API UUIScrollWIdgetItem : public UObject
 {
 	GENERATED_BODY()
