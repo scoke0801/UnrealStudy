@@ -7,7 +7,6 @@
 #include "UIHudTest.generated.h"
 
 class UEditableTextBox;
-
 /**
  * 
  */
@@ -28,6 +27,9 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "UI", Meta = (BindWidget))
 	UEditableTextBox* _editableTextBox2;
 
+	UPROPERTY(EditAnywhere, Category = "UI", Meta = (BindWidget))
+	TObjectPtr<class UListView> _listView;
+
 	UPROPERTY(EditAnywhere, Category = "UI")
 	TSubclassOf<class UUserWidget> _valueTextClass;
 
@@ -35,7 +37,6 @@ protected:
 	TObjectPtr<AActor> _targetActor = nullptr;
 
 	TMap<int32, CachedLocationInfo> _locationMap;
-
 private:
 	bool _isStarted = false;
 
@@ -52,6 +53,8 @@ private:
 	
 	UFUNCTION()
 	void OnTextCommittedText_2(const FText& Text, ETextCommit::Type CommitMethod);
+
+	void OnListViewScrolledInternal(float ItemOffset, float DistanceRemaining);
 
 private:
 	void FindActorByBame(FName InTargetName);

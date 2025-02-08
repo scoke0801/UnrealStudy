@@ -2,6 +2,9 @@
 
 
 #include "UI/HUD/UIHudTest.h"
+
+#include "UI/Etc/UIScrollWidget.h"
+#include "UI/Etc/UINumText.h"
 #include "Management/UIManager.h"
 
 #include "UI/Window/UIWindowBase.h"
@@ -10,15 +13,16 @@
 
 #include "Components/EditableTextBox.h" 
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/ListView.h"
 
 #include "Kismet/GameplayStatics.h"
-
-#include "GameFramework/Actor.h"
-#include "GameFramework/PlayerController.h"
 
 #include "Blueprint/WidgetLayoutLibrary.h"
 #include "Components/CanvasPanelSlot.h"
 #include "Kismet/KismetMathLibrary.h"
+
+#include "GameFramework/Actor.h"
+#include "GameFramework/PlayerController.h"
 
 void UUIHudTest::NativeOnInitialized()
 {
@@ -26,8 +30,10 @@ void UUIHudTest::NativeOnInitialized()
 
 	_editableTextBox1->OnTextCommitted.AddDynamic(this, &UUIHudTest::OnTextCommittedText_1);
 	_editableTextBox2->OnTextCommitted.AddDynamic(this, &UUIHudTest::OnTextCommittedText_2);
-}
 
+	_listView->OnListViewScrolled().AddUObject(this, &UUIHudTest::OnListViewScrolledInternal);
+}
+	
 void UUIHudTest::NativeConstruct()
 {
 	Super::NativeConstruct();
@@ -36,7 +42,19 @@ void UUIHudTest::NativeConstruct()
 	//{
 	//}
 	//
-	FindActorByBame("UIScoketActor");
+
+	TArray<UUIScrollWIdgetItem*> listItems;
+
+	for (int i = 1; i <= 30; ++i)
+	{
+		UUIScrollWIdgetItem* newItem = NewObject<UUIScrollWIdgetItem>(this);
+		newItem->_data = i;
+		listItems.Add(newItem);
+	}
+	_listView->SetListItems(listItems);
+	_listView->SetScrollbarVisibility(ESlateVisibility::Collapsed);
+
+	_listView->NavigateToIndex(listItems.Num() * 0.5f);
 }
 
 void UUIHudTest::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
@@ -72,9 +90,13 @@ void UUIHudTest::OnTextCommittedText_2(const FText& Text, ETextCommit::Type Comm
 	}
 }
 
+void UUIHudTest::OnListViewScrolledInternal(float ItemOffset, float DistanceRemaining)
+{
+}
+
 void UUIHudTest::FindActorByBame(FName InTargetName)
 {	
-	// ¸ðµç AActor¸¦ Ã£°í, ÀÌ¸§ÀÌ ÀÏÄ¡ÇÏ´ÂÁö È®ÀÎ
+	// ï¿½ï¿½ï¿½ AActorï¿½ï¿½ Ã£ï¿½ï¿½, ï¿½Ì¸ï¿½ï¿½ï¿½ ï¿½ï¿½Ä¡ï¿½Ï´ï¿½ï¿½ï¿½ È®ï¿½ï¿½
 	TArray<AActor*> FoundActors;
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AActor::StaticClass(), FoundActors);
 
@@ -110,7 +132,7 @@ void UUIHudTest::AddTextValueWidget(int32 InValue)
 		return;
 	}
 	
-	// 3D ¾×ÅÍÀÇ ¼ÒÄÏ À§Ä¡¸¦ È­¸é ÁÂÇ¥·á º¯È¯.
+	// 3D ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ä¡ï¿½ï¿½ È­ï¿½ï¿½ ï¿½ï¿½Ç¥ï¿½ï¿½ ï¿½ï¿½È¯.
 	FVector baseLocation = GetLocationOfActorSocket("UISocket");
 
 	FVector2D screenLocation = FVector2D::ZeroVector;
@@ -119,7 +141,7 @@ void UUIHudTest::AddTextValueWidget(int32 InValue)
 		return;
 	}
 
-	// ·£´ý À§Ä¡ º¸Á¤.
+	// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ä¡ ï¿½ï¿½ï¿½ï¿½.
 	screenLocation = GenerateRandLocation(screenLocation);
 
 	if(UUINumText* Widget = CreateWidget<UUINumText>(GetWorld(), _valueTextClass))
@@ -128,7 +150,7 @@ void UUIHudTest::AddTextValueWidget(int32 InValue)
 
 		Widget->SetValueText(InValue);
 
-		// dpi º¸Á¤ÇØ¼­ À§Ä¡ ¼³Á¤ÇØÁÖ¼¼¿ä.
+		// dpi ï¿½ï¿½ï¿½ï¿½ï¿½Ø¼ï¿½ ï¿½ï¿½Ä¡ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¼ï¿½ï¿½ï¿½.
 		Widget->SetPositionInViewport(screenLocation, true);
 
 		Widget->OnRemoveNotify.BindUObject(this, &UUIHudTest::OnRemoveNotify);
@@ -153,7 +175,7 @@ FVector2D UUIHudTest::GenerateRandLocation(const FVector2D InBaseLocation) const
 
 	do
 	{
-		// È­¸é ³»¿¡¼­ ·£´ýÇÑ À§Ä¡ »ý¼º
+		// È­ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ä¡ ï¿½ï¿½ï¿½ï¿½
 		RandomPosition.X = InBaseLocation.X + FMath::FRandRange(-randSize.X * 0.5f, randSize.X * 0.5f);
 		RandomPosition.Y = InBaseLocation.Y + FMath::FRandRange(0, randSize.Y);
 
@@ -182,7 +204,7 @@ FVector2D UUIHudTest::GenerateRandLocation(const FVector2D InBaseLocation) const
 		}
 
 		++tryCount;
-	} while (bIsOverlapping && tryCount < 100);  // °ãÄ¡Áö ¾ÊÀ» ¶§±îÁö ¹Ýº¹
+	} while (bIsOverlapping && tryCount < 100);  // ï¿½ï¿½Ä¡ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ýºï¿½
 
 	return RandomPosition;
 }
