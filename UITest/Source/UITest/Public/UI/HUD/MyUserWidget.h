@@ -26,6 +26,7 @@ private:
 	TArray<class UUIScrollWIdgetItem*> Items;
 
 	int _cachedOffset = 0;
+	
 protected:
 	virtual void NativeOnInitialized() override;
 	virtual void NativeConstruct() override;
@@ -41,4 +42,9 @@ protected:
 	
 	bool IsRightScrollEnd(float InOffset);
 	void HandleRightScroll();
+
+	void UpdatePage();
+
+private:
+	int32 Wrap(int32 InValue, int32 InMin, int32 InMax) const;
 };

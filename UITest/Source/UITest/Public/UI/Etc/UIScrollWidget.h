@@ -16,6 +16,7 @@ class UITEST_API UUIScrollWIdgetItem : public UObject
 	GENERATED_BODY()
 public:
 	int _data;
+	int _index;
 public:
 	UUIScrollWIdgetItem() = default;
 };
@@ -34,10 +35,14 @@ protected:
 
 	UPROPERTY(meta=(BindWidget))
 	UTextBlock* _txtValue;
+
+private:
+	int32 _cachedValue = 0;
 	
 private:
 	virtual void NativeOnListItemObjectSet(UObject* ListItemObject) override;
 
 public:
 	void SetValue(int32 InValue);
+	int32 GetValue() const {return _cachedValue;}
 };

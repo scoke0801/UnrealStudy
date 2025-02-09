@@ -3,6 +3,7 @@
 
 #include "UI/HUD/MyUserWidget.h"
 
+#include "IDetailTreeNode.h"
 #include "UI/Etc/UIScrollWidget.h"
 #include "Components/ListView.h"
 
@@ -39,69 +40,89 @@ void UMyUserWidget::PopulateList()
 	Items.Empty();
 
 	// 초기 아이템 생성
-	for (int i = 1; i <= 15; ++i)
+	for (int i = 1; i <= 30; ++i)
 	{
 		UUIScrollWIdgetItem* newItem = NewObject<UUIScrollWIdgetItem>(this);
+		newItem->_index = i;
 		newItem->_data = i;
 		Items.Add(newItem);
 	}
 	_listView->SetListItems(Items);
 	_listView->SetScrollbarVisibility(ESlateVisibility::Collapsed);
 
-	_listView->SetScrollOffset(5);
+	_listView->SetScrollOffset(15);
 
 	_cachedOffset = _listView->GetScrollOffset();
 	UE_LOG(LogTemp,Display, TEXT("NativeConstruct - Offset: %f"), _listView->GetScrollOffset());
 }
 
-void UMyUserWidget::HandleScroll(float ScrollOffset)
-{
-	// if (!_listView) return;
-	//
-	// if (ScrollOffset >= MaxScroll - 50.0f) // 리스트의 끝에 도달하면
-	// {
-	// 	// 처음 아이템을 다시 리스트 끝에 추가
-	// 	for (int i = 0; i < 5; i++)
-	// 	{
-	// 		UUIScrollWIdgetItem* ClonedItem = NewObject<UUIScrollWIdgetItem>();
-	// 		//ClonedItem->ItemName = Items[i]->ItemName;
-	// 		Items.Add(ClonedItem);
-	// 	}
-	// 	_listView->SetListItems(Items);
-	// }
-	// else if (ScrollOffset <= 50.0f) // 리스트의 맨 위에 도달하면
-	// {
-	// 	// 마지막 아이템을 다시 리스트 앞쪽에 추가
-	// 	for (int i = 0; i < 5; i++)
-	// 	{
-	// 		UUIScrollWIdgetItem* ClonedItem = NewObject<UUIScrollWIdgetItem>();
-	// 		//ClonedItem->ItemName = Items.Last()->ItemName;
-	// 		Items.Insert(ClonedItem, 0);
-	// 	}
-	// 	_listView->SetListItems(Items);
-	// }
-}
-
 bool UMyUserWidget::IsLeftScrollEnd(float InOffset)
 {
-	return InOffset <= 0.0f;
+	return InOffset <= _visibleCount;
 }
 
 void UMyUserWidget::HandleLeftScroll()
 {
 	UE_LOG(LogTemp,Display, TEXT("HandleLeftScroll"));
-	_listView->SetScrollOffset(5);
+
+	if (UObject* item = _listView->GetItemAt(_visibleCount))
+	{
+		if (UUIScrollWidget* Widget = Cast<UUIScrollWidget>(_listView->GetEntryWidgetFromItem(item)))
+		{
+			_cachedOffset = Widget->GetValue();
+		}
+	}
+
+	UpdatePage();
+	_listView->SetScrollOffset(15);
 }
 
 bool UMyUserWidget::IsRightScrollEnd(float InOffset)
 {
 	int32 DisplayedEndIndex = _listView->GetDisplayedEntryWidgets().Num() - 1;
 	
-	return (InOffset + DisplayedEndIndex >= (Items.Num()));
+	return (InOffset + DisplayedEndIndex >= Items.Num() - _visibleCount);
 }
 
 void UMyUserWidget::HandleRightScroll()
 {
 	UE_LOG(LogTemp,Display, TEXT("HandleRightScroll"));
+	if (UObject* item = _listView->GetItemAt(Items.Num() - _visibleCount))
+	{
+		if (UUIScrollWidget* Widget = Cast<UUIScrollWidget>(_listView->GetEntryWidgetFromItem(item)))
+		{
+			_cachedOffset = Widget->GetValue();
+		}
+	}
+
+	UpdatePage();
 	_listView->SetScrollOffset(5);
+}
+
+void UMyUserWidget::UpdatePage()
+{
+	const TArray<UObject*> itemList = _listView->GetListItems();
+
+	int index = 1;
+	for (int32 i = _visibleCount; i < Items.Num() - _visibleCount; ++i, ++index)
+	{
+		int32 value = Wrap(_cachedOffset + index, _visibleCount, Items.Num() - _visibleCount);
+
+		UE_LOG(LogTemp,Display, TEXT("UpdatePage - [%d] - value: [%d], index: [%d]"), i, value, index);
+		if (UUIScrollWIdgetItem* data = Cast<UUIScrollWIdgetItem>(itemList[i]))
+		{
+			data->_index = i;
+			data->_data = value;	
+		}
+		else
+		{
+			UE_LOG(LogTemp,Display, TEXT("UpdatePage fail"));
+		}
+	}
+}
+
+int32 UMyUserWidget::Wrap(int32 InValue, int32 InMin, int32 InMax) const
+{
+	int32 newValue = (InValue - InMin) % (InMax - InMin);
+	return (newValue >= 0) ? (newValue + InMin) : (newValue+ InMax);
 }
