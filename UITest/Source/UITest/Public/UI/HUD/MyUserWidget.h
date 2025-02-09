@@ -17,10 +17,15 @@ class UITEST_API UMyUserWidget : public UUserWidget
 protected:
 	UPROPERTY(EditAnywhere, Category = "UI", Meta = (BindWidget))
 	TObjectPtr<class UListView> _listView;
+
+
+	UPROPERTY(EditAnywhere, Category = "UIValue")
+	int32 _visibleCount =5;
 	
 private:
 	TArray<class UUIScrollWIdgetItem*> Items;
 
+	int _cachedOffset = 0;
 protected:
 	virtual void NativeOnInitialized() override;
 	virtual void NativeConstruct() override;
@@ -30,4 +35,10 @@ protected:
 
 	void PopulateList();
 	void HandleScroll(float ScrollOffset);
+
+	bool IsLeftScrollEnd(float InOffset);
+	void HandleLeftScroll();
+	
+	bool IsRightScrollEnd(float InOffset);
+	void HandleRightScroll();
 };
