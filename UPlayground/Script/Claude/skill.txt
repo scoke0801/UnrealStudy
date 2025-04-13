@@ -1,0 +1,3856 @@
+
+언리얼 Playground /
+게임에서 사용할 용도로 UI 및 기반 클래스를 구현한다.
+WidgetBase를 부모 클래스로 하여
+하위에서 Window / Popup / Ticker 를 구현
+Popup의 경우, 설정 값을 통해 모달/모달리스 식으로 동작할 수 있어야 한다.
+
+읽어주신 내용과 목표를 분석해 보겠습니다. 'UPlayground' 프로젝트는 언리얼 엔진 5.4 기반의 RPG 프로젝트로, C++ 20 표준을 사용하고 있으며 게임 피쳐 플러그인 시스템을 활용한 모듈화된 구조를 가지고 있습니다. 모든 사용자 정의 클래스에는 'PG' 접두사를 사용하고 있고요.
+
+이제 UI 기반 클래스를 구현하려고 하시는 것 같습니다. WidgetBase를 부모 클래스로 하고, 그 하위에 Window, Popup, Ticker 클래스를 구현하고자 하시네요. 특히 Popup은 모달/모달리스 방식으로 동작할 수 있어야 한다는 요구사항이 있습니다.
+
+깊이 있는 답변을 위해 UI 시스템 구조를 설계하고 코드를 구현해 보겠습니다.
+
+UI 시스템 설계
+1. 클래스 계층 구조
+UPGWidgetBase (기본 위젯 클래스)
+├── UPGWindow (창 위젯)
+├── UPGPopup (팝업 위젯)
+└── UPGTicker (티커 위젯)
+2. 각 클래스의 주요 책임
+UPGWidgetBase
+모든 UI 위젯의 기본 클래스
+위젯 표시/숨김, 애니메이션, 입력 처리 등의 공통 기능 제공
+위젯 생명주기 관리 (초기화, 표시, 숨김, 파괴)
+입력 포커스 관리
+UI 스택 관리를 위한 인터페이스
+UPGWindow
+주요 게임 화면 (인벤토리, 캐릭터 정보, 퀘스트 로그 등)
+전체 스크린 또는 주요 영역을 차지하는 UI
+다른 창과의 전환 관리
+UPGPopup
+알림, 경고, 확인 대화상자와 같은 임시 UI
+모달/모달리스 동작 지원
+배경 딤(dim) 효과 및 입력 차단 옵션
+팝업 스택 관리
+UPGTicker
+짧은 알림 메시지 (퀘스트 업데이트, 아이템 획득 등)
+자동 표시/숨김 타이밍
+애니메이션 효과
+다중 메시지 큐 관리
+이제 이 설계를 바탕으로 코드를 구현해 보겠습니다.
+
+UI 시스템 구현
+1. UPGWidgetBase 클래스 (헤더 파일)
+cpp
+// PGWidgetBase.h
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Blueprint/UserWidget.h"
+#include "PGWidgetBase.generated.h"
+
+UENUM(BlueprintType)
+enum class EPGWidgetState : uint8
+{
+    Inactive,       // 비활성화 상태
+    Appearing,      // 표시 중
+    Active,         // 활성화 상태
+    Disappearing,   // 숨김 중
+};
+
+/**
+ * UPGWidgetBase - 모든 UI 위젯의 기본 클래스
+ * 공통 기능과 생명주기 관리를 담당합니다.
+ */
+UCLASS(Abstract, Blueprintable)
+class UPLAYGROUND_API UPGWidgetBase : public UUserWidget
+{
+    GENERATED_BODY()
+
+public:
+    UPGWidgetBase(const FObjectInitializer& ObjectInitializer);
+
+    // 위젯 표시 함수
+    UFUNCTION(BlueprintCallable, Category = "Widget")
+    virtual void ShowWidget();
+
+    // 위젯 숨김 함수
+    UFUNCTION(BlueprintCallable, Category = "Widget")
+    virtual void HideWidget();
+
+    // 애니메이션 완료 후 위젯 파괴
+    UFUNCTION(BlueprintCallable, Category = "Widget")
+    virtual void DestroyWidget();
+
+    // 위젯 초기화 (데이터 설정 등)
+    UFUNCTION(BlueprintCallable, Category = "Widget")
+    virtual void InitializeWidget();
+
+    // 위젯 현재 상태 반환
+    UFUNCTION(BlueprintPure, Category = "Widget")
+    EPGWidgetState GetWidgetState() const { return CurrentState; }
+
+    // 위젯이 활성화 상태인지 확인
+    UFUNCTION(BlueprintPure, Category = "Widget")
+    bool IsWidgetActive() const { return CurrentState == EPGWidgetState::Active; }
+
+protected:
+    // UUserWidget 오버라이드
+    virtual void NativeConstruct() override;
+    virtual void NativeDestruct() override;
+    virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
+
+    // 표시 애니메이션 시작
+    UFUNCTION(BlueprintCallable, Category = "Widget")
+    virtual void PlayShowAnimation();
+
+    // 숨김 애니메이션 시작
+    UFUNCTION(BlueprintCallable, Category = "Widget")
+    virtual void PlayHideAnimation();
+
+    // 애니메이션 완료 콜백
+    UFUNCTION(BlueprintCallable, Category = "Widget")
+    virtual void OnShowAnimationFinished();
+    
+    UFUNCTION(BlueprintCallable, Category = "Widget")
+    virtual void OnHideAnimationFinished();
+
+    // 현재 위젯 상태
+    UPROPERTY(BlueprintReadOnly, Category = "Widget")
+    EPGWidgetState CurrentState;
+
+    // 표시/숨김 애니메이션
+    UPROPERTY(Transient, BlueprintReadWrite, meta = (BindWidgetAnim), Category = "Animation")
+    UWidgetAnimation* ShowAnimation;
+
+    UPROPERTY(Transient, BlueprintReadWrite, meta = (BindWidgetAnim), Category = "Animation")
+    UWidgetAnimation* HideAnimation;
+
+    // 위젯 Z-오더(Order) 설정
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Widget")
+    int32 ZOrder;
+
+    // ESC 키로 닫기 가능 여부
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Widget")
+    bool bCloseOnEsc;
+};
+2. UPGWidgetBase 클래스 (소스 파일)
+cpp
+// PGWidgetBase.cpp
+#include "UI/PGWidgetBase.h"
+#include "Animation/WidgetAnimation.h"
+#include "Kismet/GameplayStatics.h"
+#include "Blueprint/WidgetLayoutLibrary.h"
+
+UPGWidgetBase::UPGWidgetBase(const FObjectInitializer& ObjectInitializer)
+    : Super(ObjectInitializer)
+    , CurrentState(EPGWidgetState::Inactive)
+    , ZOrder(0)
+    , bCloseOnEsc(true)
+{
+}
+
+void UPGWidgetBase::NativeConstruct()
+{
+    Super::NativeConstruct();
+    
+    // 초기화 함수 호출
+    InitializeWidget();
+}
+
+void UPGWidgetBase::NativeDestruct()
+{
+    Super::NativeDestruct();
+}
+
+void UPGWidgetBase::InitializeWidget()
+{
+    // 블루프린트에서 확장 가능한 초기화 함수
+}
+
+void UPGWidgetBase::ShowWidget()
+{
+    if (CurrentState == EPGWidgetState::Inactive || CurrentState == EPGWidgetState::Disappearing)
+    {
+        AddToViewport(ZOrder);
+        CurrentState = EPGWidgetState::Appearing;
+        PlayShowAnimation();
+    }
+}
+
+void UPGWidgetBase::HideWidget()
+{
+    if (CurrentState == EPGWidgetState::Active || CurrentState == EPGWidgetState::Appearing)
+    {
+        CurrentState = EPGWidgetState::Disappearing;
+        PlayHideAnimation();
+    }
+}
+
+void UPGWidgetBase::DestroyWidget()
+{
+    RemoveFromParent();
+}
+
+void UPGWidgetBase::PlayShowAnimation()
+{
+    if (ShowAnimation)
+    {
+        // 애니메이션 재생 및 완료 이벤트 바인딩
+        PlayAnimation(ShowAnimation, 0.0f, 1, EUMGSequencePlayMode::Forward, 1.0f);
+        
+        // 애니메이션 완료 시 호출될 델리게이트 설정
+        FWidgetAnimationDynamicEvent AnimationFinishedEvent;
+        AnimationFinishedEvent.BindDynamic(this, &UPGWidgetBase::OnShowAnimationFinished);
+        BindToAnimationFinished(ShowAnimation, AnimationFinishedEvent);
+    }
+    else
+    {
+        // 애니메이션이 없으면 즉시 완료 처리
+        OnShowAnimationFinished();
+    }
+}
+
+void UPGWidgetBase::PlayHideAnimation()
+{
+    if (HideAnimation)
+    {
+        // 애니메이션 재생 및 완료 이벤트 바인딩
+        PlayAnimation(HideAnimation, 0.0f, 1, EUMGSequencePlayMode::Forward, 1.0f);
+        
+        // 애니메이션 완료 시 호출될 델리게이트 설정
+        FWidgetAnimationDynamicEvent AnimationFinishedEvent;
+        AnimationFinishedEvent.BindDynamic(this, &UPGWidgetBase::OnHideAnimationFinished);
+        BindToAnimationFinished(HideAnimation, AnimationFinishedEvent);
+    }
+    else
+    {
+        // 애니메이션이 없으면 즉시 완료 처리
+        OnHideAnimationFinished();
+    }
+}
+
+void UPGWidgetBase::OnShowAnimationFinished()
+{
+    CurrentState = EPGWidgetState::Active;
+}
+
+void UPGWidgetBase::OnHideAnimationFinished()
+{
+    CurrentState = EPGWidgetState::Inactive;
+    DestroyWidget();
+}
+
+FReply UPGWidgetBase::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+{
+    // ESC 키로 위젯 닫기
+    if (bCloseOnEsc && InKeyEvent.GetKey() == EKeys::Escape && IsWidgetActive())
+    {
+        HideWidget();
+        return FReply::Handled();
+    }
+    
+    return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
+}
+3. UPGWindow 클래스 (헤더 파일)
+cpp
+// PGWindow.h
+#pragma once
+
+#include "CoreMinimal.h"
+#include "UI/PGWidgetBase.h"
+#include "PGWindow.generated.h"
+
+/**
+ * UPGWindow - 주요 게임 창(인벤토리, 캐릭터 정보 등)을 위한 위젯 클래스
+ */
+UCLASS(Blueprintable)
+class UPLAYGROUND_API UPGWindow : public UPGWidgetBase
+{
+    GENERATED_BODY()
+
+public:
+    UPGWindow(const FObjectInitializer& ObjectInitializer);
+
+    // 창 제목 설정/가져오기
+    UFUNCTION(BlueprintCallable, Category = "Window")
+    void SetWindowTitle(const FText& NewTitle);
+    
+    UFUNCTION(BlueprintPure, Category = "Window")
+    FText GetWindowTitle() const { return WindowTitle; }
+    
+    // 창 이동 가능 여부 설정/가져오기
+    UFUNCTION(BlueprintCallable, Category = "Window")
+    void SetDraggable(bool bInDraggable);
+    
+    UFUNCTION(BlueprintPure, Category = "Window")
+    bool IsDraggable() const { return bDraggable; }
+    
+    // 창 크기 조절 가능 여부 설정/가져오기
+    UFUNCTION(BlueprintCallable, Category = "Window")
+    void SetResizable(bool bInResizable);
+    
+    UFUNCTION(BlueprintPure, Category = "Window")
+    bool IsResizable() const { return bResizable; }
+
+protected:
+    // UUserWidget 오버라이드
+    virtual void NativeConstruct() override;
+    virtual FReply NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
+    virtual FReply NativeOnMouseButtonUp(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
+    virtual FReply NativeOnMouseMove(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
+
+    // 창 제목
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Window")
+    FText WindowTitle;
+    
+    // 창 이동 관련 속성
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Window")
+    bool bDraggable;
+    
+    // 창 크기 조절 관련 속성
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Window")
+    bool bResizable;
+    
+    // 창 이동 상태 추적
+    bool bIsDragging;
+    FVector2D DragOffset;
+    
+    // 타이틀바 위젯
+    UPROPERTY(meta = (BindWidget), BlueprintReadOnly, Category = "Window")
+    class UPanelWidget* TitleBar;
+    
+    // 닫기 버튼
+    UPROPERTY(meta = (BindWidget), BlueprintReadOnly, Category = "Window")
+    class UButton* CloseButton;
+    
+    // 타이틀 텍스트 위젯
+    UPROPERTY(meta = (BindWidget), BlueprintReadOnly, Category = "Window")
+    class UTextBlock* TitleText;
+    
+    // 창 이동 시작 함수
+    UFUNCTION()
+    void StartDrag(const FVector2D& InMousePosition);
+    
+    // 창 이동 종료 함수
+    UFUNCTION()
+    void EndDrag();
+    
+    // 닫기 버튼 클릭 핸들러
+    UFUNCTION()
+    void OnCloseButtonClicked();
+};
+4. UPGWindow 클래스 (소스 파일)
+cpp
+// PGWindow.cpp
+#include "UI/PGWindow.h"
+#include "Components/Button.h"
+#include "Components/TextBlock.h"
+#include "Components/PanelWidget.h"
+#include "Blueprint/WidgetLayoutLibrary.h"
+
+UPGWindow::UPGWindow(const FObjectInitializer& ObjectInitializer)
+    : Super(ObjectInitializer)
+    , bDraggable(true)
+    , bResizable(false)
+    , bIsDragging(false)
+    , DragOffset(FVector2D::ZeroVector)
+{
+    // 창은 기본적으로 더 높은 Z-오더를 가짐
+    ZOrder = 10;
+}
+
+void UPGWindow::NativeConstruct()
+{
+    Super::NativeConstruct();
+    
+    // 바인딩된 위젯 초기화
+    if (TitleText)
+    {
+        TitleText->SetText(WindowTitle);
+    }
+    
+    if (CloseButton)
+    {
+        CloseButton->OnClicked.AddDynamic(this, &UPGWindow::OnCloseButtonClicked);
+    }
+}
+
+void UPGWindow::SetWindowTitle(const FText& NewTitle)
+{
+    WindowTitle = NewTitle;
+    
+    if (TitleText)
+    {
+        TitleText->SetText(WindowTitle);
+    }
+}
+
+void UPGWindow::SetDraggable(bool bInDraggable)
+{
+    bDraggable = bInDraggable;
+}
+
+void UPGWindow::SetResizable(bool bInResizable)
+{
+    bResizable = bInResizable;
+}
+
+FReply UPGWindow::NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
+    if (bDraggable && TitleBar && InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
+    {
+        // 마우스 클릭이 타이틀바 영역에 있는지 확인
+        FGeometry TitleBarGeometry = TitleBar->GetCachedGeometry();
+        FVector2D MousePosition = InMouseEvent.GetScreenSpacePosition();
+        FVector2D LocalMousePosition = UWidgetLayoutLibrary::SlotAsCanvasSlot(this)->GetPosition();
+        
+        if (TitleBarGeometry.IsUnderLocation(MousePosition))
+        {
+            StartDrag(MousePosition);
+            return FReply::Handled().CaptureMouse(TakeWidget());
+        }
+    }
+    
+    return Super::NativeOnMouseButtonDown(InGeometry, InMouseEvent);
+}
+
+FReply UPGWindow::NativeOnMouseButtonUp(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
+    if (bIsDragging && InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
+    {
+        EndDrag();
+        return FReply::Handled().ReleaseMouseCapture();
+    }
+    
+    return Super::NativeOnMouseButtonUp(InGeometry, InMouseEvent);
+}
+
+FReply UPGWindow::NativeOnMouseMove(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
+    if (bIsDragging)
+    {
+        FVector2D MousePosition = InMouseEvent.GetScreenSpacePosition();
+        FVector2D NewPosition = MousePosition - DragOffset;
+        
+        // 캔버스 슬롯을 통해 위젯 위치 설정
+        UCanvasPanelSlot* CanvasSlot = UWidgetLayoutLibrary::SlotAsCanvasSlot(this);
+        if (CanvasSlot)
+        {
+            CanvasSlot->SetPosition(NewPosition);
+        }
+        
+        return FReply::Handled();
+    }
+    
+    return Super::NativeOnMouseMove(InGeometry, InMouseEvent);
+}
+
+void UPGWindow::StartDrag(const FVector2D& InMousePosition)
+{
+    bIsDragging = true;
+    
+    // 현재 위젯의 위치를 얻음
+    UCanvasPanelSlot* CanvasSlot = UWidgetLayoutLibrary::SlotAsCanvasSlot(this);
+    if (CanvasSlot)
+    {
+        FVector2D CurrentPosition = CanvasSlot->GetPosition();
+        DragOffset = InMousePosition - CurrentPosition;
+    }
+}
+
+void UPGWindow::EndDrag()
+{
+    bIsDragging = false;
+}
+
+void UPGWindow::OnCloseButtonClicked()
+{
+    HideWidget();
+}
+5. UPGPopup 클래스 (헤더 파일)
+cpp
+// PGPopup.h
+#pragma once
+
+#include "CoreMinimal.h"
+#include "UI/PGWidgetBase.h"
+#include "PGPopup.generated.h"
+
+UENUM(BlueprintType)
+enum class EPGPopupType : uint8
+{
+    Default,    // 기본 팝업
+    Info,       // 정보 팝업
+    Warning,    // 경고 팝업
+    Error,      // 오류 팝업
+    Success     // 성공 팝업
+};
+
+UENUM(BlueprintType)
+enum class EPGPopupMode : uint8
+{
+    Modal,      // 모달 팝업 (배경 입력 차단)
+    Modaless    // 모달리스 팝업 (배경 입력 허용)
+};
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPopupButtonClickedDelegate, int32, ButtonIndex);
+
+/**
+ * UPGPopup - 모달/모달리스 팝업 위젯 클래스
+ */
+UCLASS(Blueprintable)
+class UPLAYGROUND_API UPGPopup : public UPGWidgetBase
+{
+    GENERATED_BODY()
+
+public:
+    UPGPopup(const FObjectInitializer& ObjectInitializer);
+
+    // 팝업 설정 함수
+    UFUNCTION(BlueprintCallable, Category = "Popup")
+    void SetupPopup(const FText& InTitle, const FText& InMessage, EPGPopupType InType = EPGPopupType::Default);
+    
+    // 팝업 모드 설정 (모달/모달리스)
+    UFUNCTION(BlueprintCallable, Category = "Popup")
+    void SetPopupMode(EPGPopupMode InMode);
+    
+    // 버튼 추가
+    UFUNCTION(BlueprintCallable, Category = "Popup")
+    void AddButton(const FText& ButtonText, int32 ButtonIndex);
+    
+    // 팝업 표시 및 숨김 오버라이드
+    virtual void ShowWidget() override;
+    virtual void HideWidget() override;
+
+    // 버튼 클릭 델리게이트
+    UPROPERTY(BlueprintAssignable, Category = "Popup")
+    FOnPopupButtonClickedDelegate OnPopupButtonClicked;
+
+protected:
+    // UUserWidget 오버라이드
+    virtual void NativeConstruct() override;
+    virtual FReply NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
+    
+    // 타이틀 및 메시지
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Popup")
+    FText PopupTitle;
+    
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Popup")
+    FText PopupMessage;
+    
+    // 팝업 타입 및 모드
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Popup")
+    EPGPopupType PopupType;
+    
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Popup")
+    EPGPopupMode PopupMode;
+    
+    // 배경 딤(dim) 효과 강도
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Popup", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float BackgroundDimOpacity;
+    
+    // UI 엘리먼트
+    UPROPERTY(meta = (BindWidget), BlueprintReadOnly, Category = "Popup")
+    class UTextBlock* TitleTextBlock;
+    
+    UPROPERTY(meta = (BindWidget), BlueprintReadOnly, Category = "Popup")
+    class UTextBlock* MessageTextBlock;
+    
+    UPROPERTY(meta = (BindWidget), BlueprintReadOnly, Category = "Popup")
+    class UPanelWidget* ButtonContainer;
+    
+    UPROPERTY(meta = (BindWidget), BlueprintReadOnly, Category = "Popup")
+    class UImage* BackgroundDim;
+    
+    // 버튼 클릭 핸들러
+    UFUNCTION()
+    void OnButtonClicked(int32 ButtonIndex);
+    
+    // 버튼 위젯 생성
+    UFUNCTION(BlueprintImplementableEvent, Category = "Popup")
+    class UButton* CreateButtonWidget(const FText& ButtonText, int32 ButtonIndex);
+    
+    // 팝업 타입에 따른 스타일 적용
+    UFUNCTION(BlueprintImplementableEvent, Category = "Popup")
+    void ApplyPopupStyle(EPGPopupType InType);
+};
+6. UPGPopup 클래스 (소스 파일)
+cpp
+// PGPopup.cpp
+#include "UI/PGPopup.h"
+#include "Components/TextBlock.h"
+#include "Components/PanelWidget.h"
+#include "Components/Button.h"
+#include "Components/Image.h"
+#include "Blueprint/WidgetLayoutLibrary.h"
+
+UPGPopup::UPGPopup(const FObjectInitializer& ObjectInitializer)
+    : Super(ObjectInitializer)
+    , PopupType(EPGPopupType::Default)
+    , PopupMode(EPGPopupMode::Modal)
+    , BackgroundDimOpacity(0.5f)
+{
+    // 팝업은 높은 Z-오더를 가짐
+    ZOrder = 100;
+}
+
+void UPGPopup::NativeConstruct()
+{
+    Super::NativeConstruct();
+    
+    // 바인딩된 위젯 초기화
+    if (TitleTextBlock)
+    {
+        TitleTextBlock->SetText(PopupTitle);
+    }
+    
+    if (MessageTextBlock)
+    {
+        MessageTextBlock->SetText(PopupMessage);
+    }
+    
+    if (BackgroundDim)
+    {
+        FLinearColor DimColor = FLinearColor(0.0f, 0.0f, 0.0f, BackgroundDimOpacity);
+        BackgroundDim->SetColorAndOpacity(DimColor);
+        BackgroundDim->SetVisibility(PopupMode == EPGPopupMode::Modal ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
+    }
+}
+
+void UPGPopup::SetupPopup(const FText& InTitle, const FText& InMessage, EPGPopupType InType)
+{
+    PopupTitle = InTitle;
+    PopupMessage = InMessage;
+    PopupType = InType;
+    
+    if (TitleTextBlock)
+    {
+        TitleTextBlock->SetText(PopupTitle);
+    }
+    
+    if (MessageTextBlock)
+    {
+        MessageTextBlock->SetText(PopupMessage);
+    }
+    
+    // 스타일 적용
+    ApplyPopupStyle(PopupType);
+}
+
+void UPGPopup::SetPopupMode(EPGPopupMode InMode)
+{
+    PopupMode = InMode;
+    
+    if (BackgroundDim)
+    {
+        BackgroundDim->SetVisibility(PopupMode == EPGPopupMode::Modal ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
+    }
+}
+
+void UPGPopup::AddButton(const FText& ButtonText, int32 ButtonIndex)
+{
+    if (ButtonContainer)
+    {
+        // 블루프린트 구현 이벤트를 호출하여 버튼 위젯 생성
+        UButton* ButtonWidget = CreateButtonWidget(ButtonText, ButtonIndex);
+        
+        if (ButtonWidget)
+        {
+            // 버튼 클릭 이벤트 바인딩
+            FScriptDelegate ButtonDelegate;
+            ButtonDelegate.BindUFunction(this, "OnButtonClicked", ButtonIndex);
+            ButtonWidget->OnClicked.Add(ButtonDelegate);
+            
+            // 버튼 컨테이너에 추가
+            ButtonContainer->AddChild(ButtonWidget);
+        }
+    }
+}
+
+void UPGPopup::ShowWidget()
+{
+    Super::ShowWidget();
+    
+    // 모달 팝업의 경우 입력 포커스 가져오기
+    if (PopupMode == EPGPopupMode::Modal)
+    {
+        UWidgetBlueprintLibrary::SetInputMode_UIOnlyEx(GetOwningPlayer(), this);
+    }
+}
+
+void UPGPopup::HideWidget()
+{
+    Super::HideWidget();
+    
+    // 모달 팝업의 경우 입력 모드 복원
+    if (PopupMode == EPGPopupMode::Modal)
+    {
+        UWidgetBlueprintLibrary::SetInputMode_GameOnly(GetOwningPlayer());
+    }
+}
+
+void UPGPopup::OnButtonClicked(int32 ButtonIndex)
+{
+    // 버튼 클릭 델리게이트 호출
+    OnPopupButtonClicked.Broadcast(ButtonIndex);
+    
+    // 팝업 닫기 (필요에 따라 옵션화 가능)
+    HideWidget();
+}
+
+FReply UPGPopup::NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
+    // 모달 팝업의 경우 모든 입력 처리
+    if (PopupMode == EPGPopupMode::Modal)
+    {
+        return FReply::Handled();
+    }
+    
+    return Super::NativeOnMouseButtonDown(InGeometry, InMouseEvent);
+}
+7. UPGTicker 클래스 (헤더 파일)
+cpp
+// PGTicker.h
+#pragma once
+
+#include "CoreMinimal.h"
+#include "UI/PGWidgetBase.h"
+#include "PGTicker.generated.h"
+
+USTRUCT(BlueprintType)
+struct FPGTickerMessage
+{
+    GENERATED_BODY()
+
+    // 메시지 텍스트
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ticker")
+    FText Message;
+    
+    // 메시지 아이콘 (옵션)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ticker")
+    UTexture2D* Icon;
+    
+    // 메시지 표시 시간 (초)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ticker")
+    float DisplayTime;
+    
+    // 메시지 타입 (커스텀 스타일링용)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ticker")
+    FName MessageType;
+
+    FPGTickerMessage()
+        : Icon(nullptr)
+        , DisplayTime(5.0f)
+        , MessageType
+
+추가한 코드를 현재 프로젝트에 추가해줘
+
+이해했습니다. 제가 설계한 UI 시스템 코드를 프로젝트에 추가해 드리겠습니다. 현재 프로젝트에 관련 코드를 추가하기 위해 다음과 같은 순서로 진행하겠습니다.
+
+
+jetbrains(로컬)의 list_directory_tree_in_folder 결과 보기
+
+{
+  `maxDepth`: 3,
+  `pathInProject`: `/`
+}
+{"name":"UPlayground","type":"directory","path":"","children":[{"name":".idea","type":"directory","path":".idea","children":[{"name":".idea.UPlayground","type":"directory","path":".idea\.idea.UPlayground","children":[{"name":".idea","type":"directory","path":".idea\.idea.UPlayground\.idea","children":[]}]}]},{"name":".vs","type":"directory","path":".vs","children":[{"name":"UPlayground","type":"directory","path":".vs\UPlayground","children":[{"name":"v17","type":"directory","path":".vs\UPlayground\v17","children":[]}]}]},{"name":".vsconfig","type":"file","path":".vsconfig"},{"name":"Binaries","type":"directory","path":"Binaries","children":[{"name":"Win64","type":"directory","path":"Binaries\Win64","children":[{"name":"UnrealEditor-UPlayground.dll","type":"file","path":"Binaries\Win64\UnrealEditor-UPlayground.dll"},{"name":"UnrealEditor-UPlayground.pdb","type":"file","path":"Binaries\Win64\UnrealEditor-UPlayground.pdb"},{"name":"UnrealEditor.modules","type":"file","path":"Binaries\Win64\UnrealEditor.modules"},{"name":"UPlaygroundEditor.target","type":"file","path":"Binaries\Win64\UPlaygroundEditor.target"}]}]},{"name":"Config","type":"directory","path":"Config","children":[{"name":"DefaultEditor.ini","type":"file","path":"Config\DefaultEditor.ini"},{"name":"DefaultEngine.ini","type":"file","path":"Config\DefaultEngine.ini"},{"name":"DefaultGame.ini","type":"file","path":"Config\DefaultGame.ini"},{"name":"DefaultInput.ini","type":"file","path":"Config\DefaultInput.ini"}]},{"name":"Content","type":"directory","path":"Content","children":[{"name":"Collections","type":"directory","path":"Content\Collections","children":[]},{"name":"Developers","type":"directory","path":"Content\Developers","children":[{"name":"scoke","type":"directory","path":"Content\Developers\scoke","children":[]}]}]},{"name":"DerivedDataCache","type":"directory","path":"DerivedDataCache","children":[{"name":"VT","type":"directory","path":"DerivedDataCache\VT","children":[]}]},{"name":"Intermediate","type":"directory","path":"Intermediate","children":[{"name":"Build","type":"directory","path":"Intermediate\Build","children":[{"name":"BuildRules","type":"directory","path":"Intermediate\Build\BuildRules","children":[]},{"name":"BuildRulesProjects","type":"directory","path":"Intermediate\Build\BuildRulesProjects","children":[]},{"name":"SourceFileCache.bin","type":"file","path":"Intermediate\Build\SourceFileCache.bin"},{"name":"Win64","type":"directory","path":"Intermediate\Build\Win64","children":[]},{"name":"XmlConfigCache.bin","type":"file","path":"Intermediate\Build\XmlConfigCache.bin"}]},{"name":"CachedAssetRegistry_0.bin","type":"file","path":"Intermediate\CachedAssetRegistry_0.bin"},{"name":"Config","type":"directory","path":"Intermediate\Config","children":[{"name":"CoalescedSourceConfigs","type":"directory","path":"Intermediate\Config\CoalescedSourceConfigs","children":[]}]},{"name":"PipInstall","type":"directory","path":"Intermediate\PipInstall","children":[{"name":"extra_urls.txt","type":"file","path":"Intermediate\PipInstall\extra_urls.txt"},{"name":"Lib","type":"directory","path":"Intermediate\PipInstall\Lib","children":[]},{"name":"merged_requirements.in","type":"file","path":"Intermediate\PipInstall\merged_requirements.in"},{"name":"pyreqs_plugins.list","type":"file","path":"Intermediate\PipInstall\pyreqs_plugins.list"}]},{"name":"ProjectFiles","type":"directory","path":"Intermediate\ProjectFiles","children":[{"name":".Rider","type":"directory","path":"Intermediate\ProjectFiles\.Rider","children":[]},{"name":"AutomationTool.csproj.References","type":"file","path":"Intermediate\ProjectFiles\AutomationTool.csproj.References"},{"name":"UE5.vcxproj","type":"file","path":"Intermediate\ProjectFiles\UE5.vcxproj"},{"name":"UE5.vcxproj.filters","type":"file","path":"Intermediate\ProjectFiles\UE5.vcxproj.filters"},{"name":"UE5.vcxproj.user","type":"file","path":"Intermediate\ProjectFiles\UE5.vcxproj.user"},{"name":"UECommon.props","type":"file","path":"Intermediate\ProjectFiles\UECommon.props"},{"name":"UPlayground.vcxproj","type":"file","path":"Intermediate\ProjectFiles\UPlayground.vcxproj"},{"name":"UPlayground.vcxproj.filters","type":"file","path":"Intermediate\ProjectFiles\UPlayground.vcxproj.filters"},{"name":"UPlayground.vcxproj.user","type":"file","path":"Intermediate\ProjectFiles\UPlayground.vcxproj.user"}]},{"name":"ReimportCache","type":"directory","path":"Intermediate\ReimportCache","children":[{"name":"3688439234.bin","type":"file","path":"Intermediate\ReimportCache\3688439234.bin"}]},{"name":"ShaderAutogen","type":"directory","path":"Intermediate\ShaderAutogen","children":[{"name":"PCD3D_SM5","type":"directory","path":"Intermediate\ShaderAutogen\PCD3D_SM5","children":[]},{"name":"PCD3D_SM6","type":"directory","path":"Intermediate\ShaderAutogen\PCD3D_SM6","children":[]}]},{"name":"TargetInfo.Engine.json","type":"file","path":"Intermediate\TargetInfo.Engine.json"},{"name":"TargetInfo.json","type":"file","path":"Intermediate\TargetInfo.json"},{"name":"TargetInfo.UPlayground.json","type":"file","path":"Intermediate\TargetInfo.UPlayground.json"}]},{"name":"Saved","type":"directory","path":"Saved","children":[{"name":"Autosaves","type":"directory","path":"Saved\Autosaves","children":[{"name":"PackageRestoreData.json","type":"file","path":"Saved\Autosaves\PackageRestoreData.json"}]},{"name":"AutoScreenshot.png","type":"file","path":"Saved\AutoScreenshot.png"},{"name":"Collections","type":"directory","path":"Saved\Collections","children":[]},{"name":"Config","type":"directory","path":"Saved\Config","children":[{"name":"CrashReportClient","type":"directory","path":"Saved\Config\CrashReportClient","children":[]},{"name":"WindowsEditor","type":"directory","path":"Saved\Config\WindowsEditor","children":[]}]},{"name":"Logs","type":"directory","path":"Saved\Logs","children":[{"name":"UnrealVersionSelector-2025.04.13-22.36.20.json","type":"file","path":"Saved\Logs\UnrealVersionSelector-2025.04.13-22.36.20.json"},{"name":"UnrealVersionSelector-2025.04.13-22.36.20.log","type":"file","path":"Saved\Logs\UnrealVersionSelector-2025.04.13-22.36.20.log"},{"name":"UPlayground.log","type":"file","path":"Saved\Logs\UPlayground.log"}]},{"name":"ShaderDebugInfo","type":"directory","path":"Saved\ShaderDebugInfo","children":[{"name":"PCD3D_SM6","type":"directory","path":"Saved\ShaderDebugInfo\PCD3D_SM6","children":[]}]},{"name":"Telemetry","type":"directory","path":"Saved\Telemetry","children":[{"name":"Telemetry.json","type":"file","path":"Saved\Telemetry\Telemetry.json"}]},{"name":"UnrealBuildTool","type":"directory","path":"Saved\UnrealBuildTool","children":[{"name":"BuildConfiguration.xml","type":"file","path":"Saved\UnrealBuildTool\BuildConfiguration.xml"}]}]},{"name":"Script","type":"directory","path":"Script","children":[{"name":"Claude","type":"directory","path":"Script\Claude","children":[{"name":"readme.txt","type":"file","path":"Script\Claude\readme.txt"},{"name":"UI.txt","type":"file","path":"Script\Claude\UI.txt"}]}]},{"name":"Source","type":"directory","path":"Source","children":[{"name":"UPlayground","type":"directory","path":"Source\UPlayground","children":[{"name":"Features","type":"directory","path":"Source\UPlayground\Features","children":[]},{"name":"Items","type":"directory","path":"Source\UPlayground\Items","children":[]},{"name":"Managers","type":"directory","path":"Source\UPlayground\Managers","children":[]},{"name":"UPlayground.Build.cs","type":"file","path":"Source\UPlayground\UPlayground.Build.cs"},{"name":"UPlayground.cpp","type":"file","path":"Source\UPlayground\UPlayground.cpp"},{"name":"UPlayground.h","type":"file","path":"Source\UPlayground\UPlayground.h"}]},{"name":"UPlayground.Target.cs","type":"file","path":"Source\UPlayground.Target.cs"},{"name":"UPlaygroundEditor.Target.cs","type":"file","path":"Source\UPlaygroundEditor.Target.cs"}]},{"name":"UPlayground.sln","type":"file","path":"UPlayground.sln"},{"name":"UPlayground.uproject","type":"file","path":"UPlayground.uproject"}]}
+이제 프로젝트 구조를 확인했으니, UI 폴더를 생성하고 각 클래스 파일을 만들겠습니다.
+
+먼저 UI 폴더를 생성합니다.
+
+jetbrains(로컬)의 create_new_file_with_text 결과 보기
+
+{
+  `text`: ``,
+  `pathInProject`: `Source/UPlayground/UI/.gitkeep`
+}
+ok
+이제 PGWidgetBase.h 파일을 생성합니다.
+
+jetbrains(로컬)의 create_new_file_with_text 결과 보기
+
+{
+  `text`: `// PGWidgetBase.h
+#pragma once
+
+#include \"CoreMinimal.h\"
+#include \"Blueprint/UserWidget.h\"
+#include \"PGWidgetBase.generated.h\"
+
+UENUM(BlueprintType)
+enum class EPGWidgetState : uint8
+{
+    Inactive,       // 비활성화 상태
+    Appearing,      // 표시 중
+    Active,         // 활성화 상태
+    Disappearing,   // 숨김 중
+};
+
+/**
+ * UPGWidgetBase - 모든 UI 위젯의 기본 클래스
+ * 공통 기능과 생명주기 관리를 담당합니다.
+ */
+UCLASS(Abstract, Blueprintable)
+class UPLAYGROUND_API UPGWidgetBase : public UUserWidget
+{
+    GENERATED_BODY()
+
+public:
+    UPGWidgetBase(const FObjectInitializer& ObjectInitializer);
+
+    // 위젯 표시 함수
+    UFUNCTION(BlueprintCallable, Category = \"Widget\")
+    virtual void ShowWidget();
+
+    // 위젯 숨김 함수
+    UFUNCTION(BlueprintCallable, Category = \"Widget\")
+    virtual void HideWidget();
+
+    // 애니메이션 완료 후 위젯 파괴
+    UFUNCTION(BlueprintCallable, Category = \"Widget\")
+    virtual void DestroyWidget();
+
+    // 위젯 초기화 (데이터 설정 등)
+    UFUNCTION(BlueprintCallable, Category = \"Widget\")
+    virtual void InitializeWidget();
+
+    // 위젯 현재 상태 반환
+    UFUNCTION(BlueprintPure, Category = \"Widget\")
+    EPGWidgetState GetWidgetState() const { return CurrentState; }
+
+    // 위젯이 활성화 상태인지 확인
+    UFUNCTION(BlueprintPure, Category = \"Widget\")
+    bool IsWidgetActive() const { return CurrentState == EPGWidgetState::Active; }
+
+protected:
+    // UUserWidget 오버라이드
+    virtual void NativeConstruct() override;
+    virtual void NativeDestruct() override;
+    virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
+
+    // 표시 애니메이션 시작
+    UFUNCTION(BlueprintCallable, Category = \"Widget\")
+    virtual void PlayShowAnimation();
+
+    // 숨김 애니메이션 시작
+    UFUNCTION(BlueprintCallable, Category = \"Widget\")
+    virtual void PlayHideAnimation();
+
+    // 애니메이션 완료 콜백
+    UFUNCTION(BlueprintCallable, Category = \"Widget\")
+    virtual void OnShowAnimationFinished();
+    
+    UFUNCTION(BlueprintCallable, Category = \"Widget\")
+    virtual void OnHideAnimationFinished();
+
+    // 현재 위젯 상태
+    UPROPERTY(BlueprintReadOnly, Category = \"Widget\")
+    EPGWidgetState CurrentState;
+
+    // 표시/숨김 애니메이션
+    UPROPERTY(Transient, BlueprintReadWrite, meta = (BindWidgetAnim), Category = \"Animation\")
+    UWidgetAnimation* ShowAnimation;
+
+    UPROPERTY(Transient, BlueprintReadWrite, meta = (BindWidgetAnim), Category = \"Animation\")
+    UWidgetAnimation* HideAnimation;
+
+    // 위젯 Z-오더(Order) 설정
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = \"Widget\")
+    int32 ZOrder;
+
+    // ESC 키로 닫기 가능 여부
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = \"Widget\")
+    bool bCloseOnEsc;
+};`,
+  `pathInProject`: `Source/UPlayground/UI/PGWidgetBase.h`
+}
+ok
+PGWidgetBase.cpp 파일을 생성합니다.
+
+jetbrains(로컬)의 create_new_file_with_text 결과 보기
+
+{
+  `text`: `// PGWidgetBase.cpp
+#include \"UI/PGWidgetBase.h\"
+#include \"Animation/WidgetAnimation.h\"
+#include \"Kismet/GameplayStatics.h\"
+#include \"Blueprint/WidgetLayoutLibrary.h\"
+
+UPGWidgetBase::UPGWidgetBase(const FObjectInitializer& ObjectInitializer)
+    : Super(ObjectInitializer)
+    , CurrentState(EPGWidgetState::Inactive)
+    , ZOrder(0)
+    , bCloseOnEsc(true)
+{
+}
+
+void UPGWidgetBase::NativeConstruct()
+{
+    Super::NativeConstruct();
+    
+    // 초기화 함수 호출
+    InitializeWidget();
+}
+
+void UPGWidgetBase::NativeDestruct()
+{
+    Super::NativeDestruct();
+}
+
+void UPGWidgetBase::InitializeWidget()
+{
+    // 블루프린트에서 확장 가능한 초기화 함수
+}
+
+void UPGWidgetBase::ShowWidget()
+{
+    if (CurrentState == EPGWidgetState::Inactive || CurrentState == EPGWidgetState::Disappearing)
+    {
+        AddToViewport(ZOrder);
+        CurrentState = EPGWidgetState::Appearing;
+        PlayShowAnimation();
+    }
+}
+
+void UPGWidgetBase::HideWidget()
+{
+    if (CurrentState == EPGWidgetState::Active || CurrentState == EPGWidgetState::Appearing)
+    {
+        CurrentState = EPGWidgetState::Disappearing;
+        PlayHideAnimation();
+    }
+}
+
+void UPGWidgetBase::DestroyWidget()
+{
+    RemoveFromParent();
+}
+
+void UPGWidgetBase::PlayShowAnimation()
+{
+    if (ShowAnimation)
+    {
+        // 애니메이션 재생 및 완료 이벤트 바인딩
+        PlayAnimation(ShowAnimation, 0.0f, 1, EUMGSequencePlayMode::Forward, 1.0f);
+        
+        // 애니메이션 완료 시 호출될 델리게이트 설정
+        FWidgetAnimationDynamicEvent AnimationFinishedEvent;
+        AnimationFinishedEvent.BindDynamic(this, &UPGWidgetBase::OnShowAnimationFinished);
+        BindToAnimationFinished(ShowAnimation, AnimationFinishedEvent);
+    }
+    else
+    {
+        // 애니메이션이 없으면 즉시 완료 처리
+        OnShowAnimationFinished();
+    }
+}
+
+void UPGWidgetBase::PlayHideAnimation()
+{
+    if (HideAnimation)
+    {
+        // 애니메이션 재생 및 완료 이벤트 바인딩
+        PlayAnimation(HideAnimation, 0.0f, 1, EUMGSequencePlayMode::Forward, 1.0f);
+        
+        // 애니메이션 완료 시 호출될 델리게이트 설정
+        FWidgetAnimationDynamicEvent AnimationFinishedEvent;
+        AnimationFinishedEvent.BindDynamic(this, &UPGWidgetBase::OnHideAnimationFinished);
+        BindToAnimationFinished(HideAnimation, AnimationFinishedEvent);
+    }
+    else
+    {
+        // 애니메이션이 없으면 즉시 완료 처리
+        OnHideAnimationFinished();
+    }
+}
+
+void UPGWidgetBase::OnShowAnimationFinished()
+{
+    CurrentState = EPGWidgetState::Active;
+}
+
+void UPGWidgetBase::OnHideAnimationFinished()
+{
+    CurrentState = EPGWidgetState::Inactive;
+    DestroyWidget();
+}
+
+FReply UPGWidgetBase::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+{
+    // ESC 키로 위젯 닫기
+    if (bCloseOnEsc && InKeyEvent.GetKey() == EKeys::Escape && IsWidgetActive())
+    {
+        HideWidget();
+        return FReply::Handled();
+    }
+    
+    return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
+}`,
+  `pathInProject`: `Source/UPlayground/UI/PGWidgetBase.cpp`
+}
+ok
+PGWindow.h 파일을 생성합니다.
+
+jetbrains(로컬)의 create_new_file_with_text 결과 보기
+
+{
+  `text`: `// PGWindow.h
+#pragma once
+
+#include \"CoreMinimal.h\"
+#include \"UI/PGWidgetBase.h\"
+#include \"PGWindow.generated.h\"
+
+/**
+ * UPGWindow - 주요 게임 창(인벤토리, 캐릭터 정보 등)을 위한 위젯 클래스
+ */
+UCLASS(Blueprintable)
+class UPLAYGROUND_API UPGWindow : public UPGWidgetBase
+{
+    GENERATED_BODY()
+
+public:
+    UPGWindow(const FObjectInitializer& ObjectInitializer);
+
+    // 창 제목 설정/가져오기
+    UFUNCTION(BlueprintCallable, Category = \"Window\")
+    void SetWindowTitle(const FText& NewTitle);
+    
+    UFUNCTION(BlueprintPure, Category = \"Window\")
+    FText GetWindowTitle() const { return WindowTitle; }
+    
+    // 창 이동 가능 여부 설정/가져오기
+    UFUNCTION(BlueprintCallable, Category = \"Window\")
+    void SetDraggable(bool bInDraggable);
+    
+    UFUNCTION(BlueprintPure, Category = \"Window\")
+    bool IsDraggable() const { return bDraggable; }
+    
+    // 창 크기 조절 가능 여부 설정/가져오기
+    UFUNCTION(BlueprintCallable, Category = \"Window\")
+    void SetResizable(bool bInResizable);
+    
+    UFUNCTION(BlueprintPure, Category = \"Window\")
+    bool IsResizable() const { return bResizable; }
+
+protected:
+    // UUserWidget 오버라이드
+    virtual void NativeConstruct() override;
+    virtual FReply NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
+    virtual FReply NativeOnMouseButtonUp(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
+    virtual FReply NativeOnMouseMove(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
+
+    // 창 제목
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = \"Window\")
+    FText WindowTitle;
+    
+    // 창 이동 관련 속성
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = \"Window\")
+    bool bDraggable;
+    
+    // 창 크기 조절 관련 속성
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = \"Window\")
+    bool bResizable;
+    
+    // 창 이동 상태 추적
+    bool bIsDragging;
+    FVector2D DragOffset;
+    
+    // 타이틀바 위젯
+    UPROPERTY(meta = (BindWidget), BlueprintReadOnly, Category = \"Window\")
+    class UPanelWidget* TitleBar;
+    
+    // 닫기 버튼
+    UPROPERTY(meta = (BindWidget), BlueprintReadOnly, Category = \"Window\")
+    class UButton* CloseButton;
+    
+    // 타이틀 텍스트 위젯
+    UPROPERTY(meta = (BindWidget), BlueprintReadOnly, Category = \"Window\")
+    class UTextBlock* TitleText;
+    
+    // 창 이동 시작 함수
+    UFUNCTION()
+    void StartDrag(const FVector2D& InMousePosition);
+    
+    // 창 이동 종료 함수
+    UFUNCTION()
+    void EndDrag();
+    
+    // 닫기 버튼 클릭 핸들러
+    UFUNCTION()
+    void OnCloseButtonClicked();
+};`,
+  `pathInProject`: `Source/UPlayground/UI/PGWindow.h`
+}
+ok
+PGWindow.cpp 파일을 생성합니다.
+
+jetbrains(로컬)의 create_new_file_with_text 결과 보기
+
+{
+  `text`: `// PGWindow.cpp
+#include \"UI/PGWindow.h\"
+#include \"Components/Button.h\"
+#include \"Components/TextBlock.h\"
+#include \"Components/PanelWidget.h\"
+#include \"Blueprint/WidgetLayoutLibrary.h\"
+#include \"Components/CanvasPanelSlot.h\"
+
+UPGWindow::UPGWindow(const FObjectInitializer& ObjectInitializer)
+    : Super(ObjectInitializer)
+    , bDraggable(true)
+    , bResizable(false)
+    , bIsDragging(false)
+    , DragOffset(FVector2D::ZeroVector)
+{
+    // 창은 기본적으로 더 높은 Z-오더를 가짐
+    ZOrder = 10;
+}
+
+void UPGWindow::NativeConstruct()
+{
+    Super::NativeConstruct();
+    
+    // 바인딩된 위젯 초기화
+    if (TitleText)
+    {
+        TitleText->SetText(WindowTitle);
+    }
+    
+    if (CloseButton)
+    {
+        CloseButton->OnClicked.AddDynamic(this, &UPGWindow::OnCloseButtonClicked);
+    }
+}
+
+void UPGWindow::SetWindowTitle(const FText& NewTitle)
+{
+    WindowTitle = NewTitle;
+    
+    if (TitleText)
+    {
+        TitleText->SetText(WindowTitle);
+    }
+}
+
+void UPGWindow::SetDraggable(bool bInDraggable)
+{
+    bDraggable = bInDraggable;
+}
+
+void UPGWindow::SetResizable(bool bInResizable)
+{
+    bResizable = bInResizable;
+}
+
+FReply UPGWindow::NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
+    if (bDraggable && TitleBar && InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
+    {
+        // 마우스 클릭이 타이틀바 영역에 있는지 확인
+        FGeometry TitleBarGeometry = TitleBar->GetCachedGeometry();
+        FVector2D MousePosition = InMouseEvent.GetScreenSpacePosition();
+        
+        if (TitleBarGeometry.IsUnderLocation(MousePosition))
+        {
+            StartDrag(MousePosition);
+            return FReply::Handled().CaptureMouse(TakeWidget());
+        }
+    }
+    
+    return Super::NativeOnMouseButtonDown(InGeometry, InMouseEvent);
+}
+
+FReply UPGWindow::NativeOnMouseButtonUp(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
+    if (bIsDragging && InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
+    {
+        EndDrag();
+        return FReply::Handled().ReleaseMouseCapture();
+    }
+    
+    return Super::NativeOnMouseButtonUp(InGeometry, InMouseEvent);
+}
+
+FReply UPGWindow::NativeOnMouseMove(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
+    if (bIsDragging)
+    {
+        FVector2D MousePosition = InMouseEvent.GetScreenSpacePosition();
+        FVector2D NewPosition = MousePosition - DragOffset;
+        
+        // 캔버스 슬롯을 통해 위젯 위치 설정
+        UCanvasPanelSlot* CanvasSlot = UWidgetLayoutLibrary::SlotAsCanvasSlot(this);
+        if (CanvasSlot)
+        {
+            CanvasSlot->SetPosition(NewPosition);
+        }
+        
+        return FReply::Handled();
+    }
+    
+    return Super::NativeOnMouseMove(InGeometry, InMouseEvent);
+}
+
+void UPGWindow::StartDrag(const FVector2D& InMousePosition)
+{
+    bIsDragging = true;
+    
+    // 현재 위젯의 위치를 얻음
+    UCanvasPanelSlot* CanvasSlot = UWidgetLayoutLibrary::SlotAsCanvasSlot(this);
+    if (CanvasSlot)
+    {
+        FVector2D CurrentPosition = CanvasSlot->GetPosition();
+        DragOffset = InMousePosition - CurrentPosition;
+    }
+}
+
+void UPGWindow::EndDrag()
+{
+    bIsDragging = false;
+}
+
+void UPGWindow::OnCloseButtonClicked()
+{
+    HideWidget();
+}`,
+  `pathInProject`: `Source/UPlayground/UI/PGWindow.cpp`
+}
+ok
+PGPopup.h 파일을 생성합니다.
+
+jetbrains(로컬)의 create_new_file_with_text 결과 보기
+
+{
+  `text`: `// PGPopup.h
+#pragma once
+
+#include \"CoreMinimal.h\"
+#include \"UI/PGWidgetBase.h\"
+#include \"PGPopup.generated.h\"
+
+UENUM(BlueprintType)
+enum class EPGPopupType : uint8
+{
+    Default,    // 기본 팝업
+    Info,       // 정보 팝업
+    Warning,    // 경고 팝업
+    Error,      // 오류 팝업
+    Success     // 성공 팝업
+};
+
+UENUM(BlueprintType)
+enum class EPGPopupMode : uint8
+{
+    Modal,      // 모달 팝업 (배경 입력 차단)
+    Modaless    // 모달리스 팝업 (배경 입력 허용)
+};
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPopupButtonClickedDelegate, int32, ButtonIndex);
+
+/**
+ * UPGPopup - 모달/모달리스 팝업 위젯 클래스
+ */
+UCLASS(Blueprintable)
+class UPLAYGROUND_API UPGPopup : public UPGWidgetBase
+{
+    GENERATED_BODY()
+
+public:
+    UPGPopup(const FObjectInitializer& ObjectInitializer);
+
+    // 팝업 설정 함수
+    UFUNCTION(BlueprintCallable, Category = \"Popup\")
+    void SetupPopup(const FText& InTitle, const FText& InMessage, EPGPopupType InType = EPGPopupType::Default);
+    
+    // 팝업 모드 설정 (모달/모달리스)
+    UFUNCTION(BlueprintCallable, Category = \"Popup\")
+    void SetPopupMode(EPGPopupMode InMode);
+    
+    // 버튼 추가
+    UFUNCTION(BlueprintCallable, Category = \"Popup\")
+    void AddButton(const FText& ButtonText, int32 ButtonIndex);
+    
+    // 팝업 표시 및 숨김 오버라이드
+    virtual void ShowWidget() override;
+    virtual void HideWidget() override;
+
+    // 버튼 클릭 델리게이트
+    UPROPERTY(BlueprintAssignable, Category = \"Popup\")
+    FOnPopupButtonClickedDelegate OnPopupButtonClicked;
+
+protected:
+    // UUserWidget 오버라이드
+    virtual void NativeConstruct() override;
+    virtual FReply NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
+    
+    // 타이틀 및 메시지
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = \"Popup\")
+    FText PopupTitle;
+    
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = \"Popup\")
+    FText PopupMessage;
+    
+    // 팝업 타입 및 모드
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = \"Popup\")
+    EPGPopupType PopupType;
+    
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = \"Popup\")
+    EPGPopupMode PopupMode;
+    
+    // 배경 딤(dim) 효과 강도
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = \"Popup\", meta = (ClampMin = \"0.0\", ClampMax = \"1.0\"))
+    float BackgroundDimOpacity;
+    
+    // UI 엘리먼트
+    UPROPERTY(meta = (BindWidget), BlueprintReadOnly, Category = \"Popup\")
+    class UTextBlock* TitleTextBlock;
+    
+    UPROPERTY(meta = (BindWidget), BlueprintReadOnly, Category = \"Popup\")
+    class UTextBlock* MessageTextBlock;
+    
+    UPROPERTY(meta = (BindWidget), BlueprintReadOnly, Category = \"Popup\")
+    class UPanelWidget* ButtonContainer;
+    
+    UPROPERTY(meta = (BindWidget), BlueprintReadOnly, Category = \"Popup\")
+    class UImage* BackgroundDim;
+    
+    // 버튼 클릭 핸들러
+    UFUNCTION()
+    void OnButtonClicked(int32 ButtonIndex);
+    
+    // 버튼 위젯 생성
+    UFUNCTION(BlueprintImplementableEvent, Category = \"Popup\")
+    class UButton* CreateButtonWidget(const FText& ButtonText, int32 ButtonIndex);
+    
+    // 팝업 타입에 따른 스타일 적용
+    UFUNCTION(BlueprintImplementableEvent, Category = \"Popup\")
+    void ApplyPopupStyle(EPGPopupType InType);
+};`,
+  `pathInProject`: `Source/UPlayground/UI/PGPopup.h`
+}
+ok
+PGPopup.cpp 파일을 생성합니다.
+
+jetbrains(로컬)의 create_new_file_with_text 결과 보기
+
+{
+  `text`: `// PGPopup.cpp
+#include \"UI/PGPopup.h\"
+#include \"Components/TextBlock.h\"
+#include \"Components/PanelWidget.h\"
+#include \"Components/Button.h\"
+#include \"Components/Image.h\"
+#include \"Blueprint/WidgetLayoutLibrary.h\"
+#include \"Blueprint/WidgetBlueprintLibrary.h\"
+
+UPGPopup::UPGPopup(const FObjectInitializer& ObjectInitializer)
+    : Super(ObjectInitializer)
+    , PopupType(EPGPopupType::Default)
+    , PopupMode(EPGPopupMode::Modal)
+    , BackgroundDimOpacity(0.5f)
+{
+    // 팝업은 높은 Z-오더를 가짐
+    ZOrder = 100;
+}
+
+void UPGPopup::NativeConstruct()
+{
+    Super::NativeConstruct();
+    
+    // 바인딩된 위젯 초기화
+    if (TitleTextBlock)
+    {
+        TitleTextBlock->SetText(PopupTitle);
+    }
+    
+    if (MessageTextBlock)
+    {
+        MessageTextBlock->SetText(PopupMessage);
+    }
+    
+    if (BackgroundDim)
+    {
+        FLinearColor DimColor = FLinearColor(0.0f, 0.0f, 0.0f, BackgroundDimOpacity);
+        BackgroundDim->SetColorAndOpacity(DimColor);
+        BackgroundDim->SetVisibility(PopupMode == EPGPopupMode::Modal ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
+    }
+}
+
+void UPGPopup::SetupPopup(const FText& InTitle, const FText& InMessage, EPGPopupType InType)
+{
+    PopupTitle = InTitle;
+    PopupMessage = InMessage;
+    PopupType = InType;
+    
+    if (TitleTextBlock)
+    {
+        TitleTextBlock->SetText(PopupTitle);
+    }
+    
+    if (MessageTextBlock)
+    {
+        MessageTextBlock->SetText(PopupMessage);
+    }
+    
+    // 스타일 적용
+    ApplyPopupStyle(PopupType);
+}
+
+void UPGPopup::SetPopupMode(EPGPopupMode InMode)
+{
+    PopupMode = InMode;
+    
+    if (BackgroundDim)
+    {
+        BackgroundDim->SetVisibility(PopupMode == EPGPopupMode::Modal ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
+    }
+}
+
+void UPGPopup::AddButton(const FText& ButtonText, int32 ButtonIndex)
+{
+    if (ButtonContainer)
+    {
+        // 블루프린트 구현 이벤트를 호출하여 버튼 위젯 생성
+        UButton* ButtonWidget = CreateButtonWidget(ButtonText, ButtonIndex);
+        
+        if (ButtonWidget)
+        {
+            // 버튼 클릭 이벤트 바인딩
+            FScriptDelegate ButtonDelegate;
+            ButtonDelegate.BindUFunction(this, \"OnButtonClicked\", ButtonIndex);
+            ButtonWidget->OnClicked.Add(ButtonDelegate);
+            
+            // 버튼 컨테이너에 추가
+            ButtonContainer->AddChild(ButtonWidget);
+        }
+    }
+}
+
+void UPGPopup::ShowWidget()
+{
+    Super::ShowWidget();
+    
+    // 모달 팝업의 경우 입력 포커스 가져오기
+    if (PopupMode == EPGPopupMode::Modal)
+    {
+        UWidgetBlueprintLibrary::SetInputMode_UIOnlyEx(GetOwningPlayer(), this);
+    }
+}
+
+void UPGPopup::HideWidget()
+{
+    Super::HideWidget();
+    
+    // 모달 팝업의 경우 입력 모드 복원
+    if (PopupMode == EPGPopupMode::Modal)
+    {
+        UWidgetBlueprintLibrary::SetInputMode_GameOnly(GetOwningPlayer());
+    }
+}
+
+void UPGPopup::OnButtonClicked(int32 ButtonIndex)
+{
+    // 버튼 클릭 델리게이트 호출
+    OnPopupButtonClicked.Broadcast(ButtonIndex);
+    
+    // 팝업 닫기 (필요에 따라 옵션화 가능)
+    HideWidget();
+}
+
+FReply UPGPopup::NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
+    // 모달 팝업의 경우 모든 입력 처리
+    if (PopupMode == EPGPopupMode::Modal)
+    {
+        return FReply::Handled();
+    }
+    
+    return Super::NativeOnMouseButtonDown(InGeometry, InMouseEvent);
+}`,
+  `pathInProject`: `Source/UPlayground/UI/PGPopup.cpp`
+}
+ok
+PGTicker.h 파일을 생성합니다.
+
+jetbrains(로컬)의 create_new_file_with_text 결과 보기
+
+{
+  `text`: `// PGTicker.h
+#pragma once
+
+#include \"CoreMinimal.h\"
+#include \"UI/PGWidgetBase.h\"
+#include \"PGTicker.generated.h\"
+
+USTRUCT(BlueprintType)
+struct FPGTickerMessage
+{
+    GENERATED_BODY()
+
+    // 메시지 텍스트
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = \"Ticker\")
+    FText Message;
+    
+    // 메시지 아이콘 (옵션)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = \"Ticker\")
+    UTexture2D* Icon;
+    
+    // 메시지 표시 시간 (초)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = \"Ticker\")
+    float DisplayTime;
+    
+    // 메시지 타입 (커스텀 스타일링용)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = \"Ticker\")
+    FName MessageType;
+
+    FPGTickerMessage()
+        : Icon(nullptr)
+        , DisplayTime(5.0f)
+        , MessageType(NAME_None)
+    {
+    }
+};
+
+/**
+ * UPGTicker - 짧은 알림 메시지를 위한 위젯 클래스
+ */
+UCLASS(`,
+  `pathInProject`: `Source/UPlayground/UI/PGTicker.h`
+}
+
+계속하기
+
+계속해서 PGTicker.h 파일을 완성하고 나머지 파일들을 추가하겠습니다.
+
+
+jetbrains(로컬)의 replace_file_text_by_path 결과 보기
+
+{
+  `text`: `// PGTicker.h
+#pragma once
+
+#include \"CoreMinimal.h\"
+#include \"UI/PGWidgetBase.h\"
+#include \"PGTicker.generated.h\"
+
+USTRUCT(BlueprintType)
+struct FPGTickerMessage
+{
+    GENERATED_BODY()
+
+    // 메시지 텍스트
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = \"Ticker\")
+    FText Message;
+    
+    // 메시지 아이콘 (옵션)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = \"Ticker\")
+    UTexture2D* Icon;
+    
+    // 메시지 표시 시간 (초)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = \"Ticker\")
+    float DisplayTime;
+    
+    // 메시지 타입 (커스텀 스타일링용)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = \"Ticker\")
+    FName MessageType;
+
+    FPGTickerMessage()
+        : Icon(nullptr)
+        , DisplayTime(5.0f)
+        , MessageType(NAME_None)
+    {
+    }
+};
+
+/**
+ * UPGTicker - 짧은 알림 메시지를 위한 위젯 클래스
+ */
+UCLASS(Blueprintable)
+class UPLAYGROUND_API UPGTicker : public UPGWidgetBase
+{
+    GENERATED_BODY()
+
+public:
+    UPGTicker(const FObjectInitializer& ObjectInitializer);
+
+    // 메시지 추가 함수
+    UFUNCTION(BlueprintCallable, Category = \"Ticker\")
+    void AddMessage(const FText& Message, UTexture2D* Icon = nullptr, float DisplayTime = 5.0f, FName MessageType = NAME_None);
+    
+    // 메시지 구조체로 추가
+    UFUNCTION(BlueprintCallable, Category = \"Ticker\")
+    void AddTickerMessage(const FPGTickerMessage& TickerMessage);
+    
+    // 모든 메시지 제거
+    UFUNCTION(BlueprintCallable, Category = \"Ticker\")
+    void ClearAllMessages();
+
+    // 위젯 오버라이드
+    virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
+
+protected:
+    // UUserWidget 오버라이드
+    virtual void NativeConstruct() override;
+    
+    // 메시지 큐
+    UPROPERTY(BlueprintReadOnly, Category = \"Ticker\")
+    TArray<FPGTickerMessage> MessageQueue;
+    
+    // 현재 표시 중인 메시지
+    UPROPERTY(BlueprintReadOnly, Category = \"Ticker\")
+    FPGTickerMessage CurrentMessage;
+    
+    // 현재 메시지 표시 타이머
+    float CurrentMessageTimer;
+    
+    // 메시지가 표시 중인지 여부
+    bool bIsShowingMessage;
+    
+    // 다음 메시지 표시
+    UFUNCTION(BlueprintCallable, Category = \"Ticker\")
+    void ShowNextMessage();
+    
+    // 메시지 위젯 업데이트
+    UFUNCTION(BlueprintImplementableEvent, Category = \"Ticker\")
+    void UpdateMessageWidget(const FPGTickerMessage& Message);
+    
+    // 메시지 컨테이너
+    UPROPERTY(meta = (BindWidget), BlueprintReadOnly, Category = \"Ticker\")
+    class UPanelWidget* MessageContainer;
+    
+    // 메시지 텍스트 위젯
+    UPROPERTY(meta = (BindWidget), BlueprintReadOnly, Category = \"Ticker\")
+    class UTextBlock* MessageText;
+    
+    // 메시지 아이콘 위젯
+    UPROPERTY(meta = (BindWidget), BlueprintReadOnly, Category = \"Ticker\")
+    class UImage* MessageIcon;
+};
+`,
+  `pathInProject`: `Source/UPlayground/UI/PGTicker.h`
+}
+file not found
+파일이 존재하지 않는 것 같습니다. 다시 생성해보겠습니다.
+
+
+jetbrains(로컬)의 create_new_file_with_text 결과 보기
+
+{
+  `text`: `// PGTicker.h
+#pragma once
+
+#include \"CoreMinimal.h\"
+#include \"UI/PGWidgetBase.h\"
+#include \"PGTicker.generated.h\"
+
+USTRUCT(BlueprintType)
+struct FPGTickerMessage
+{
+    GENERATED_BODY()
+
+    // 메시지 텍스트
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = \"Ticker\")
+    FText Message;
+    
+    // 메시지 아이콘 (옵션)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = \"Ticker\")
+    UTexture2D* Icon;
+    
+    // 메시지 표시 시간 (초)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = \"Ticker\")
+    float DisplayTime;
+    
+    // 메시지 타입 (커스텀 스타일링용)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = \"Ticker\")
+    FName MessageType;
+
+    FPGTickerMessage()
+        : Icon(nullptr)
+        , DisplayTime(5.0f)
+        , MessageType(NAME_None)
+    {
+    }
+};
+
+/**
+ * UPGTicker - 짧은 알림 메시지를 위한 위젯 클래스
+ */
+UCLASS(Blueprintable)
+class UPLAYGROUND_API UPGTicker : public UPGWidgetBase
+{
+    GENERATED_BODY()
+
+public:
+    UPGTicker(const FObjectInitializer& ObjectInitializer);
+
+    // 메시지 추가 함수
+    UFUNCTION(BlueprintCallable, Category = \"Ticker\")
+    void AddMessage(const FText& Message, UTexture2D* Icon = nullptr, float DisplayTime = 5.0f, FName MessageType = NAME_None);
+    
+    // 메시지 구조체로 추가
+    UFUNCTION(BlueprintCallable, Category = \"Ticker\")
+    void AddTickerMessage(const FPGTickerMessage& TickerMessage);
+    
+    // 모든 메시지 제거
+    UFUNCTION(BlueprintCallable, Category = \"Ticker\")
+    void ClearAllMessages();
+
+    // 위젯 오버라이드
+    virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
+
+protected:
+    // UUserWidget 오버라이드
+    virtual void NativeConstruct() override;
+    
+    // 메시지 큐
+    UPROPERTY(BlueprintReadOnly, Category = \"Ticker\")
+    TArray<FPGTickerMessage> MessageQueue;
+    
+    // 현재 표시 중인 메시지
+    UPROPERTY(BlueprintReadOnly, Category = \"Ticker\")
+    FPGTickerMessage CurrentMessage;
+    
+    // 현재 메시지 표시 타이머
+    float CurrentMessageTimer;
+    
+    // 메시지가 표시 중인지 여부
+    bool bIsShowingMessage;
+    
+    // 다음 메시지 표시
+    UFUNCTION(BlueprintCallable, Category = \"Ticker\")
+    void ShowNextMessage();
+    
+    // 메시지 위젯 업데이트
+    UFUNCTION(BlueprintImplementableEvent, Category = \"Ticker\")
+    void UpdateMessageWidget(const FPGTickerMessage& Message);
+    
+    // 메시지 컨테이너
+    UPROPERTY(meta = (BindWidget), BlueprintReadOnly, Category = \"Ticker\")
+    class UPanelWidget* MessageContainer;
+    
+    // 메시지 텍스트 위젯
+    UPROPERTY(meta = (BindWidget), BlueprintReadOnly, Category = \"Ticker\")
+    class UTextBlock* MessageText;
+    
+    // 메시지 아이콘 위젯
+    UPROPERTY(meta = (BindWidget), BlueprintReadOnly, Category = \"Ticker\")
+    class UImage* MessageIcon;
+};`,
+  `pathInProject`: `Source/UPlayground/UI/PGTicker.h`
+}
+ok
+PGTicker.cpp 파일을 생성합니다.
+
+jetbrains(로컬)의 create_new_file_with_text 결과 보기
+
+{
+  `text`: `// PGTicker.cpp
+#include \"UI/PGTicker.h\"
+#include \"Components/TextBlock.h\"
+#include \"Components/PanelWidget.h\"
+#include \"Components/Image.h\"
+
+UPGTicker::UPGTicker(const FObjectInitializer& ObjectInitializer)
+    : Super(ObjectInitializer)
+    , CurrentMessageTimer(0.0f)
+    , bIsShowingMessage(false)
+{
+    // 알림은 화면 상단에 표시되므로 낮은 Z-오더를 가짐
+    ZOrder = 50;
+}
+
+void UPGTicker::NativeConstruct()
+{
+    Super::NativeConstruct();
+    
+    // 메시지 컨테이너 초기 상태 설정
+    if (MessageContainer)
+    {
+        MessageContainer->SetVisibility(ESlateVisibility::Hidden);
+    }
+}
+
+void UPGTicker::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
+{
+    Super::NativeTick(MyGeometry, InDeltaTime);
+    
+    // 현재 메시지가 표시 중인 경우 타이머 업데이트
+    if (bIsShowingMessage)
+    {
+        CurrentMessageTimer -= InDeltaTime;
+        
+        // 타이머가 끝나면 다음 메시지 표시
+        if (CurrentMessageTimer <= 0.0f)
+        {
+            if (MessageQueue.Num() > 0)
+            {
+                ShowNextMessage();
+            }
+            else
+            {
+                // 더 이상 메시지가 없으면 컨테이너 숨김
+                bIsShowingMessage = false;
+                if (MessageContainer)
+                {
+                    MessageContainer->SetVisibility(ESlateVisibility::Hidden);
+                }
+            }
+        }
+    }
+    else if (MessageQueue.Num() > 0)
+    {
+        // 대기 중인 메시지가 있고 현재 표시 중인 메시지가 없는 경우 다음 메시지 표시
+        ShowNextMessage();
+    }
+}
+
+void UPGTicker::AddMessage(const FText& Message, UTexture2D* Icon, float DisplayTime, FName MessageType)
+{
+    FPGTickerMessage NewMessage;
+    NewMessage.Message = Message;
+    NewMessage.Icon = Icon;
+    NewMessage.DisplayTime = DisplayTime;
+    NewMessage.MessageType = MessageType;
+    
+    AddTickerMessage(NewMessage);
+}
+
+void UPGTicker::AddTickerMessage(const FPGTickerMessage& TickerMessage)
+{
+    // 메시지 큐에 새 메시지 추가
+    MessageQueue.Add(TickerMessage);
+    
+    // 현재 표시 중인 메시지가 없으면 바로 표시
+    if (!bIsShowingMessage && IsWidgetActive())
+    {
+        ShowNextMessage();
+    }
+}
+
+void UPGTicker::ClearAllMessages()
+{
+    // 모든 메시지 제거
+    MessageQueue.Empty();
+    bIsShowingMessage = false;
+    
+    if (MessageContainer)
+    {
+        MessageContainer->SetVisibility(ESlateVisibility::Hidden);
+    }
+}
+
+void UPGTicker::ShowNextMessage()
+{
+    if (MessageQueue.Num() > 0)
+    {
+        // 큐에서 다음 메시지 가져오기
+        CurrentMessage = MessageQueue[0];
+        MessageQueue.RemoveAt(0);
+        
+        // 타이머 설정
+        CurrentMessageTimer = CurrentMessage.DisplayTime;
+        bIsShowingMessage = true;
+        
+        // 메시지 위젯 업데이트
+        if (MessageText)
+        {
+            MessageText->SetText(CurrentMessage.Message);
+        }
+        
+        if (MessageIcon)
+        {
+            if (CurrentMessage.Icon)
+            {
+                MessageIcon->SetBrushFromTexture(CurrentMessage.Icon);
+                MessageIcon->SetVisibility(ESlateVisibility::Visible);
+            }
+            else
+            {
+                MessageIcon->SetVisibility(ESlateVisibility::Hidden);
+            }
+        }
+        
+        // 컨테이너 표시
+        if (MessageContainer)
+        {
+            MessageContainer->SetVisibility(ESlateVisibility::Visible);
+        }
+        
+        // 블루프린트 구현 이벤트 호출
+        UpdateMessageWidget(CurrentMessage);
+    }
+}`,
+  `pathInProject`: `Source/UPlayground/UI/PGTicker.cpp`
+}
+ok
+이제 모든 UI 기본 클래스 파일이 생성되었습니다. 마지막으로, 이 클래스들이 프로젝트 빌드에 포함되도록 UPlayground.Build.cs 파일을 수정하겠습니다.
+
+
+jetbrains(로컬)의 get_file_text_by_path 결과 보기
+
+{
+  `pathInProject`: `Source/UPlayground/UPlayground.Build.cs`
+}
+// Copyright Epic Games, Inc. All Rights Reserved.
+
+using UnrealBuildTool;
+
+public class UPlayground : ModuleRules
+{
+	public UPlayground(ReadOnlyTargetRules Target) : base(Target)
+	{
+		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+        
+        // C++ 20 사용 설정
+        CppStandard = CppStandardVersion.Cpp20;
+	
+		PublicDependencyModuleNames.AddRange(new string[] { 
+			"Core", 
+			"CoreUObject", 
+			"Engine", 
+			"InputCore", 
+			"EnhancedInput",
+			"GameplayTags",
+            "DeveloperSettings"
+		});
+
+		PrivateDependencyModuleNames.AddRange(new string[] { 
+            "GameplayTasks", 
+            "GameFeatures",
+            "ModularGameplay"
+        });
+
+		// Uncomment if you are using Slate UI
+		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
+		
+		// Uncomment if you are using online features
+		// PrivateDependencyModuleNames.Add("OnlineSubsystem");
+
+		// To include OnlineSubsystemSteam, add it to the plugins section in your uproject file with the Enabled attribute set to true
+	}
+}
+이제 UPlayground.Build.cs 파일을 수정하여 UMG 및 Slate 모듈에 대한 의존성을 추가하겠습니다.
+
+
+jetbrains(로컬)의 replace_specific_text 결과 보기
+
+{
+  `newText`: `		PublicDependencyModuleNames.AddRange(new string[] { 
+			\"Core\", 
+			\"CoreUObject\", 
+			\"Engine\", 
+			\"InputCore\", 
+			\"EnhancedInput\",
+			\"GameplayTags\",
+            \"DeveloperSettings\",
+			\"UMG\"
+		});`,
+  `oldText`: `		PublicDependencyModuleNames.AddRange(new string[] { 
+			\"Core\", 
+			\"CoreUObject\", 
+			\"Engine\", 
+			\"InputCore\", 
+			\"EnhancedInput\",
+			\"GameplayTags\",
+            \"DeveloperSettings\"
+		});`,
+  `pathInProject`: `Source/UPlayground/UPlayground.Build.cs`
+}
+ok
+
+jetbrains(로컬)의 replace_specific_text 결과 보기
+
+{
+  `newText`: `		// UI 시스템을 위한 Slate 및 SlateCore 의존성 추가
+		PrivateDependencyModuleNames.AddRange(new string[] { \"Slate\", \"SlateCore\" });`,
+  `oldText`: `		// Uncomment if you are using Slate UI
+		// PrivateDependencyModuleNames.AddRange(new string[] { \"Slate\", \"SlateCore\" });`,
+  `pathInProject`: `Source/UPlayground/UPlayground.Build.cs`
+}
+ok
+이제 UI 폴더를 포함해서 프로젝트 모듈 헤더에 포함시키기 위해 UPlayground.h 파일을 확인하고 필요하다면 수정하겠습니다.
+
+
+jetbrains(로컬)의 get_file_text_by_path 결과 보기
+
+{
+  `pathInProject`: `Source/UPlayground/UPlayground.h`
+}
+// Copyright Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+
+// API 매크로 정의
+#ifndef UPLAYGROUND_API
+#define UPLAYGROUND_API DLLEXPORT
+#endif
+
+class FUPlaygroundModule : public IModuleInterface
+{
+public:
+    /** IModuleInterface 구현 */
+    virtual void StartupModule() override;
+    virtual void ShutdownModule() override;
+};
+마지막으로, UI 클래스들의 사용을 쉽게 하기 위해 헤더 파일을 만들어 모든 UI 클래스들을 포함시키겠습니다.
+
+
+jetbrains(로컬)의 create_new_file_with_text 결과 보기
+
+{
+  `text`: `// PGUI.h
+#pragma once
+
+/**
+ * UPlayground UI 시스템 헤더 파일
+ * 모든 UI 관련 클래스의 헤더를 포함합니다.
+ */
+
+#include \"UI/PGWidgetBase.h\"
+#include \"UI/PGWindow.h\"
+#include \"UI/PGPopup.h\"
+#include \"UI/PGTicker.h\"
+
+// 추가 UI 클래스들은 여기에 포함하세요
+`,
+  `pathInProject`: `Source/UPlayground/UI/PGUI.h`
+}
+ok
+이제 모든 UI 기본 클래스 파일들이 생성되고 프로젝트에 추가되었습니다. 다음은 구현한 클래스들의 요약입니다:
+
+UPGWidgetBase: 모든 UI 위젯의 기본 클래스로, 공통 기능과 생명주기를 관리합니다.
+위젯 표시/숨김, 애니메이션, 입력 처리 등 공통 기능 제공
+위젯 생명주기 관리 (초기화, 표시, 숨김, 파괴)
+ESC 키로 닫기 등 입력 포커스 관리
+UPGWindow: 주요 게임 화면(인벤토리, 캐릭터 정보 등)을 위한 위젯 클래스입니다.
+제목, 드래그 가능성, 리사이즈 기능 제공
+창 이동 및 닫기 기능
+타이틀바, 닫기 버튼 등 기본 UI 요소 포함
+UPGPopup: 모달/모달리스 팝업 위젯 클래스입니다.
+다양한 팝업 타입 (기본, 정보, 경고, 오류, 성공) 지원
+모달/모달리스 모드 선택 가능
+동적 버튼 추가 및 버튼 클릭 이벤트 처리
+배경 딤(dim) 효과 및 입력 차단 옵션
+UPGTicker: 짧은 알림 메시지를 위한 위젯 클래스입니다.
+메시지 큐 관리
+타이머 기반 메시지 표시
+메시지 타입에 따른 스타일링 지원
+아이콘 및 다양한 메시지 형식 지원
+모든 파일의 구조는 언리얼 엔진의 권장 사항을 따라 구성되었으며, C++ 20 표준과 PG 접두사를 사용하는 프로젝트 요구사항을 준수합니다.
+
+이제 프로젝트에서 이 클래스들을 상속받아 실제 게임 UI를 구현할 수 있습니다. 블루프린트에서도 이 클래스들을 상속받아 사용할 수 있습니다.
+
+스킬 시스템을 설계해줘
+
+RPG 스킬 시스템 설계
+UPlayground 프로젝트를 위한 스킬 시스템을 설계하겠습니다. 언리얼 엔진 5.4, C++ 20 표준, 게임 피쳐 플러그인 시스템을 활용하고, 모든 사용자 정의 클래스 및 구조체에 'PG' 접두사를 사용하여 설계하겠습니다.
+
+1. 스킬 시스템 개요
+RPG 게임의 스킬 시스템은 다음과 같은 핵심 요소들로 구성됩니다:
+
+스킬 데이터: 스킬의 기본 속성, 효과, 비용 등을 정의
+스킬 실행: 스킬 사용 로직 및 효과 적용
+스킬 쿨다운 관리: 스킬 사용 후 재사용 대기 시간 관리
+스킬 트리: 스킬 간의 의존성 및 잠금 해제 조건
+스킬 레벨링: 스킬 향상 시스템
+2. 클래스 구조
+UPGSkillManager (스킬 매니저)
+├── UPGSkillComponent (캐릭터에 부착되는 스킬 컴포넌트)
+│   ├── Acquired Skills
+│   └── Active Skills
+├── UPGSkill (스킬 기본 클래스)
+│   ├── UPGPassiveSkill (지속 효과 스킬)
+│   ├── UPGActiveSkill (액티브 스킬)
+│   │   ├── UPGTargetedSkill (대상 지정 스킬)
+│   │   └── UPGAreaSkill (범위 스킬)
+│   └── UPGToggleSkill (토글형 스킬)
+└── UPGSkillTree (스킬 트리 관리)
+3. 주요 클래스 상세 설계
+3.1. UPGSkill (스킬 기본 클래스)
+cpp
+// PGSkill.h
+#pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/NoExportTypes.h"
+#include "GameplayTagContainer.h"
+#include "PGSkill.generated.h"
+
+/**
+ * 스킬 타입 열거형
+ */
+UENUM(BlueprintType)
+enum class EPGSkillType : uint8
+{
+    Passive,    // 패시브 스킬
+    Active,     // 액티브 스킬
+    Toggle,     // 토글 스킬
+    Ultimate    // 궁극기 스킬
+};
+
+/**
+ * 스킬 코스트 타입 열거형
+ */
+UENUM(BlueprintType)
+enum class EPGSkillCostType : uint8
+{
+    None,       // 코스트 없음
+    Mana,       // 마나 소모
+    Health,     // 체력 소모
+    Stamina,    // 스태미나 소모
+    Rage,       // 분노 소모
+    Energy,     // 에너지 소모
+    Custom      // 사용자 정의 리소스
+};
+
+/**
+ * 스킬 대상 타입 열거형
+ */
+UENUM(BlueprintType)
+enum class EPGSkillTargetType : uint8
+{
+    Self,           // 자기 자신
+    SingleTarget,   // 단일 대상
+    AOE,            // 범위 효과
+    Line,           // 선형 효과
+    Cone,           // 원뿔형 효과
+    AllAllies,      // 모든 아군
+    AllEnemies      // 모든 적
+};
+
+/**
+ * 스킬 효과 구조체
+ */
+USTRUCT(BlueprintType)
+struct FPGSkillEffect
+{
+    GENERATED_BODY()
+
+    // 효과 타입 태그 (데미지, 힐, 버프, 디버프 등)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill")
+    FGameplayTag EffectType;
+
+    // 효과 값 (데미지 양, 힐링 양 등)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill")
+    float Value = 0.0f;
+
+    // 효과 지속 시간 (0 = 즉시 효과, >0 = 지속 효과)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill")
+    float Duration = 0.0f;
+
+    // 효과 적용 간격 (DoT, HoT의 경우)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill")
+    float TickInterval = 0.0f;
+};
+
+/**
+ * 스킬 레벨 데이터 구조체
+ */
+USTRUCT(BlueprintType)
+struct FPGSkillLevelData
+{
+    GENERATED_BODY()
+
+    // 스킬 레벨에 따른 스킬 효과 배열
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill")
+    TArray<FPGSkillEffect> Effects;
+
+    // 스킬 코스트 값
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill")
+    float CostValue = 0.0f;
+
+    // 쿨다운 시간 (초)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill")
+    float Cooldown = 0.0f;
+
+    // 시전 시간 (초)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill")
+    float CastTime = 0.0f;
+
+    // 스킬 범위
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill")
+    float Range = 0.0f;
+
+    // 스킬 효과 범위 (AOE의 경우)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill")
+    float EffectRadius = 0.0f;
+};
+
+/**
+ * UPGSkill - 모든 스킬의 기본 클래스
+ */
+UCLASS(Abstract, BlueprintType, Blueprintable)
+class UPLAYGROUND_API UPGSkill : public UObject
+{
+    GENERATED_BODY()
+
+public:
+    UPGSkill();
+
+    // 스킬 정보 접근 함수
+    UFUNCTION(BlueprintPure, Category = "Skill")
+    FText GetSkillName() const { return SkillName; }
+
+    UFUNCTION(BlueprintPure, Category = "Skill")
+    FText GetSkillDescription() const { return SkillDescription; }
+
+    UFUNCTION(BlueprintPure, Category = "Skill")
+    UTexture2D* GetSkillIcon() const { return SkillIcon; }
+
+    UFUNCTION(BlueprintPure, Category = "Skill")
+    EPGSkillType GetSkillType() const { return SkillType; }
+
+    UFUNCTION(BlueprintPure, Category = "Skill")
+    int32 GetCurrentLevel() const { return CurrentLevel; }
+
+    UFUNCTION(BlueprintPure, Category = "Skill")
+    int32 GetMaxLevel() const { return MaxLevel; }
+
+    // 스킬 레벨 변경
+    UFUNCTION(BlueprintCallable, Category = "Skill")
+    virtual bool SetSkillLevel(int32 NewLevel);
+
+    UFUNCTION(BlueprintCallable, Category = "Skill")
+    virtual bool IncreaseSkillLevel();
+
+    // 현재 레벨의 스킬 데이터 가져오기
+    UFUNCTION(BlueprintPure, Category = "Skill")
+    FPGSkillLevelData GetCurrentLevelData() const;
+
+    // 스킬이 사용 가능한지 확인
+    UFUNCTION(BlueprintCallable, Category = "Skill")
+    virtual bool CanUseSkill(AActor* Caster, AActor* Target = nullptr) const;
+
+    // 스킬 사용 (템플릿 메소드 패턴)
+    UFUNCTION(BlueprintCallable, Category = "Skill")
+    virtual bool UseSkill(AActor* Caster, AActor* Target = nullptr);
+
+    // 스킬 쿨다운 관리
+    UFUNCTION(BlueprintPure, Category = "Skill")
+    float GetRemainingCooldown() const { return RemainingCooldown; }
+
+    UFUNCTION(BlueprintCallable, Category = "Skill")
+    void ResetCooldown() { RemainingCooldown = 0.0f; }
+
+    // 스킬 태그 확인
+    UFUNCTION(BlueprintPure, Category = "Skill")
+    bool HasSkillTag(const FGameplayTag& Tag) const { return SkillTags.HasTag(Tag); }
+
+    // 스킬 업데이트 (쿨다운 등)
+    UFUNCTION(BlueprintCallable, Category = "Skill")
+    virtual void UpdateSkill(float DeltaTime);
+
+protected:
+    // 스킬 사용 내부 구현 (상속받은 클래스에서 오버라이드)
+    virtual bool ExecuteSkill(AActor* Caster, AActor* Target);
+
+    // 스킬 코스트 지불
+    virtual bool PaySkillCost(AActor* Caster);
+
+    // 스킬 효과 적용
+    virtual void ApplySkillEffects(AActor* Caster, AActor* Target);
+
+protected:
+    // 스킬 기본 데이터
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    FText SkillName;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    FText SkillDescription;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    UTexture2D* SkillIcon;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    TSubclassOf<UAnimMontage> SkillMontage;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    TSubclassOf<AActor> SkillEffectActor;
+
+    // 스킬 타입 및 속성
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    EPGSkillType SkillType;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    EPGSkillCostType CostType;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    EPGSkillTargetType TargetType;
+
+    // 스킬 게임플레이 태그
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    FGameplayTagContainer SkillTags;
+
+    // 스킬 요구사항 태그 (이 태그가 있어야 스킬 사용 가능)
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    FGameplayTagContainer RequiredTags;
+
+    // 스킬 제한 태그 (이 태그가 있으면 스킬 사용 불가)
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    FGameplayTagContainer BlockedByTags;
+
+    // 스킬 레벨 데이터
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    TArray<FPGSkillLevelData> SkillLevelData;
+
+    // 현재 스킬 레벨
+    UPROPERTY(BlueprintReadOnly, Category = "Skill")
+    int32 CurrentLevel;
+
+    // 최대 스킬 레벨
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    int32 MaxLevel;
+
+    // 스킬 사용 후 쿨다운 남은 시간
+    UPROPERTY(BlueprintReadOnly, Category = "Skill")
+    float RemainingCooldown;
+
+    // 스킬이 현재 사용 중인지 여부
+    UPROPERTY(BlueprintReadOnly, Category = "Skill")
+    bool bIsSkillActive;
+};
+3.2. UPGSkillComponent (스킬 컴포넌트)
+cpp
+// PGSkillComponent.h
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Components/ActorComponent.h"
+#include "GameplayTagContainer.h"
+#include "PGSkill.h"
+#include "PGSkillComponent.generated.h"
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnSkillAcquiredDelegate, UPGSkill*, Skill, int32, Level);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSkillUsedDelegate, UPGSkill*, Skill);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnSkillCooldownChangedDelegate, UPGSkill*, Skill, float, RemainingCooldown);
+
+/**
+ * UPGSkillComponent - 캐릭터의 스킬 관리를 위한 컴포넌트
+ */
+UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
+class UPLAYGROUND_API UPGSkillComponent : public UActorComponent
+{
+    GENERATED_BODY()
+
+public:    
+    UPGSkillComponent();
+
+protected:
+    virtual void BeginPlay() override;
+
+public:    
+    virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+
+    // 스킬 획득
+    UFUNCTION(BlueprintCallable, Category = "Skill")
+    bool AcquireSkill(TSubclassOf<UPGSkill> SkillClass, int32 Level = 1);
+
+    // 획득한 스킬 레벨 향상
+    UFUNCTION(BlueprintCallable, Category = "Skill")
+    bool UpgradeSkill(UPGSkill* Skill);
+
+    // 스킬 사용
+    UFUNCTION(BlueprintCallable, Category = "Skill")
+    bool UseSkill(UPGSkill* Skill, AActor* Target = nullptr);
+
+    // 인덱스로 스킬 사용 (단축키 바인딩용)
+    UFUNCTION(BlueprintCallable, Category = "Skill")
+    bool UseSkillByIndex(int32 SkillIndex, AActor* Target = nullptr);
+
+    // 보유한 스킬 검색
+    UFUNCTION(BlueprintPure, Category = "Skill")
+    UPGSkill* FindSkillByClass(TSubclassOf<UPGSkill> SkillClass) const;
+
+    UFUNCTION(BlueprintPure, Category = "Skill")
+    UPGSkill* FindSkillByName(const FText& SkillName) const;
+
+    UFUNCTION(BlueprintPure, Category = "Skill")
+    UPGSkill* FindSkillByTag(const FGameplayTag& SkillTag) const;
+
+    // 보유한 스킬 목록 얻기
+    UFUNCTION(BlueprintPure, Category = "Skill")
+    TArray<UPGSkill*> GetAcquiredSkills() const { return AcquiredSkills; }
+
+    UFUNCTION(BlueprintPure, Category = "Skill")
+    TArray<UPGSkill*> GetActiveSkills() const { return ActiveSkills; }
+
+    // 스킬 퀵 슬롯 관리
+    UFUNCTION(BlueprintCallable, Category = "Skill")
+    bool AssignSkillToQuickSlot(UPGSkill* Skill, int32 SlotIndex);
+
+    UFUNCTION(BlueprintCallable, Category = "Skill")
+    bool ClearQuickSlot(int32 SlotIndex);
+
+    UFUNCTION(BlueprintPure, Category = "Skill")
+    UPGSkill* GetSkillFromQuickSlot(int32 SlotIndex) const;
+
+    // 이벤트 델리게이트
+    UPROPERTY(BlueprintAssignable, Category = "Skill|Events")
+    FOnSkillAcquiredDelegate OnSkillAcquired;
+
+    UPROPERTY(BlueprintAssignable, Category = "Skill|Events")
+    FOnSkillUsedDelegate OnSkillUsed;
+
+    UPROPERTY(BlueprintAssignable, Category = "Skill|Events")
+    FOnSkillCooldownChangedDelegate OnSkillCooldownChanged;
+
+protected:
+    // 획득한 모든 스킬
+    UPROPERTY(BlueprintReadOnly, Category = "Skill")
+    TArray<UPGSkill*> AcquiredSkills;
+
+    // 활성화된 토글 스킬 등
+    UPROPERTY(BlueprintReadOnly, Category = "Skill")
+    TArray<UPGSkill*> ActiveSkills;
+
+    // 스킬 퀵 슬롯
+    UPROPERTY(BlueprintReadOnly, Category = "Skill")
+    TArray<UPGSkill*> QuickSlots;
+
+    // 최대 퀵 슬롯 수
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    int32 MaxQuickSlots;
+};
+3.3. UPGActiveSkill (액티브 스킬)
+cpp
+// PGActiveSkill.h
+#pragma once
+
+#include "CoreMinimal.h"
+#include "PGSkill.h"
+#include "PGActiveSkill.generated.h"
+
+/**
+ * UPGActiveSkill - 액티브 스킬 기본 클래스
+ * 플레이어의 명시적 입력으로 발동하는 스킬
+ */
+UCLASS()
+class UPLAYGROUND_API UPGActiveSkill : public UPGSkill
+{
+    GENERATED_BODY()
+
+public:
+    UPGActiveSkill();
+
+    // 스킬 사용 조건 검사 (비용, 쿨다운 등)
+    virtual bool CanUseSkill(AActor* Caster, AActor* Target = nullptr) const override;
+
+    // 스킬 실행
+    virtual bool ExecuteSkill(AActor* Caster, AActor* Target) override;
+
+protected:
+    // 스킬 시전 중 이동 가능 여부
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    bool bCanMoveWhileCasting;
+
+    // 스킬 시전 중 공격 받으면 취소 여부
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    bool bCancelOnDamage;
+
+    // 스킬 대상 조건
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    FGameplayTagContainer TargetRequiredTags;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    FGameplayTagContainer TargetBlockedTags;
+
+    // 스킬 시작 및 완료 이펙트
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Effects")
+    UParticleSystem* CastStartEffect;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Effects")
+    UParticleSystem* CastCompleteEffect;
+
+    // 스킬 사운드
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Audio")
+    USoundBase* CastStartSound;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Audio")
+    USoundBase* CastCompleteSound;
+};
+3.4. UPGTargetedSkill (대상 지정 스킬)
+cpp
+// PGTargetedSkill.h
+#pragma once
+
+#include "CoreMinimal.h"
+#include "PGActiveSkill.h"
+#include "PGTargetedSkill.generated.h"
+
+/**
+ * UPGTargetedSkill - 특정 대상을 지정하여 사용하는 스킬
+ */
+UCLASS()
+class UPLAYGROUND_API UPGTargetedSkill : public UPGActiveSkill
+{
+    GENERATED_BODY()
+
+public:
+    UPGTargetedSkill();
+
+    // 대상 검증 함수
+    UFUNCTION(BlueprintCallable, Category = "Skill")
+    bool IsValidTarget(AActor* Caster, AActor* Target) const;
+
+    // 스킬 실행 오버라이드
+    virtual bool ExecuteSkill(AActor* Caster, AActor* Target) override;
+
+protected:
+    // 대상까지의 최대 거리
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    float MaxTargetDistance;
+
+    // 대상이 시야 내에 있어야 하는지 여부
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    bool bRequireLineOfSight;
+
+    // 대상에게 적용할 추가 효과
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    TArray<FPGSkillEffect> AdditionalTargetEffects;
+};
+3.5. UPGAreaSkill (범위 스킬)
+cpp
+// PGAreaSkill.h
+#pragma once
+
+#include "CoreMinimal.h"
+#include "PGActiveSkill.h"
+#include "PGAreaSkill.generated.h"
+
+/**
+ * 범위 스킬 형태 열거형
+ */
+UENUM(BlueprintType)
+enum class EPGAreaSkillShape : uint8
+{
+    Circle,     // 원형 범위
+    Cone,       // 원뿔형 범위
+    Line,       // 선형 범위
+    Rectangle   // 직사각형 범위
+};
+
+/**
+ * UPGAreaSkill - 영역에 효과를 주는 스킬
+ */
+UCLASS()
+class UPLAYGROUND_API UPGAreaSkill : public UPGActiveSkill
+{
+    GENERATED_BODY()
+
+public:
+    UPGAreaSkill();
+
+    // 스킬 실행 오버라이드
+    virtual bool ExecuteSkill(AActor* Caster, AActor* Target) override;
+
+protected:
+    // 범위 내 대상 필터링 함수
+    UFUNCTION(BlueprintCallable, Category = "Skill")
+    TArray<AActor*> GetTargetsInArea(AActor* Caster, const FVector& Center) const;
+
+    // 각 대상에게 효과 적용
+    UFUNCTION(BlueprintCallable, Category = "Skill")
+    void ApplyEffectToTargets(AActor* Caster, const TArray<AActor*>& Targets);
+
+protected:
+    // 범위 스킬 형태
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    EPGAreaSkillShape AreaShape;
+
+    // 범위 크기
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    float AreaWidth;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    float AreaLength;
+
+    // 각도 (원뿔형의 경우)
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    float ConeAngle;
+
+    // 친구/적 대상 여부
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    bool bAffectFriendly;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    bool bAffectHostile;
+
+    // 스폰할 영역 이펙트
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    TSubclassOf<AActor> AreaEffectActor;
+
+    // 영역 지속 시간
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+    float AreaDuration;
+};
+3.6. UPGPassiveSkill (패시브 스킬)
+cpp
+// PGPassiveSkill.h
+#pragma once
+
+#include "CoreMinimal.h"
+#include "PGSkill.h"
+#include "PGPassiveSkill.generated.h"
+
+/**
+ * UPGPassiveSkill - 패시브 스킬 기본 클래스
+ * 자동으로 효과가 적용되는 스킬
+ */
+UCLASS()
+class UPLAYGROUND_API UPGPassiveSkill : public UPGSkill
+{
+    GENERATED_BODY()
+
+public:
+    UPGPassiveSkill();
+
+    // 스킬 레벨 설정 시 효과 갱신
+    virtual bool SetSkillLevel(int32 NewLevel) override;
+
+    // 패시브 스킬 활성화
+    UFUNCTION(BlueprintCallable, Category = "Skill")
+    virtual void ActivatePassive(AActor* Owner);
+
+    // 패시브 스킬 비활성화
+    UFUNCTION(BlueprintCallable, Category = "Skill")
+    virtual void DeactivatePassive(AActor* Owner);
+
+    // 패시브 효과 갱신
+    UFUNCTION(BlueprintCallable, Category = "Skill")
+    virtual void UpdatePassiveEffect(AActor* Owner);
+
+protected:
+    // 스탯 수정치
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Passive")
+    TMap<FName, float> StatModifiers;
+
+    // 현재 적용된 패시브 효과 ID 추적
+    UPROPERTY(BlueprintReadOnly, Category = "Skill|Passive")
+    TArray<FGuid> AppliedEffectIds;
+
+    // 패시브 활성화 조건 태그
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Passive")
+    FGameplayTagContainer ActivationTags;
+
+    // 패시브 비활성화 조건 태그
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Passive")
+    FGameplayTagContainer DeactivationTags;
+
+    // 특정 이벤트에 반응하는지 여부
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Passive")
+    bool bReactToEvents;
+
+    // 반응할 이벤트 태그
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Passive")
+    FGameplayTagContainer EventTags;
+};
+3.7. UPGSkillManager (스킬 매니저)
+cpp
+// PGSkillManager.h
+#pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/NoExportTypes.h"
+#include "Managers/PGBaseManager.h"
+#include "PGSkillManager.generated.h"
+
+/**
+ * UPGSkillManager - 스킬 시스템 전체 관리
+ */
+UCLASS()
+class UPLAYGROUND_API UPGSkillManager : public UPGBaseManager
+{
+    GENERATED_BODY()
+
+public:
+    UPGSkillManager();
+
+    // 매니저 초기화 및 종료
+    virtual void Initialize() override;
+    virtual void Shutdown() override;
+
+    // 스킬 데이터 테이블 로드
+    UFUNCTION(BlueprintCallable, Category = "Skill|Manager")
+    void LoadSkillDataTables();
+
+    // 스킬 생성 헬퍼 함수
+    UFUNCTION(BlueprintCallable, Category = "Skill|Manager")
+    UPGSkill* CreateSkillInstance(TSubclassOf<UPGSkill> SkillClass, UObject* Outer = nullptr);
+
+    // 스킬 ID로 클래스 조회
+    UFUNCTION(BlueprintCallable, Category = "Skill|Manager")
+    TSubclassOf<UPGSkill> GetSkillClassById(const FName& SkillId) const;
+
+    // 캐릭터 클래스별 시작 스킬 가져오기
+    UFUNCTION(BlueprintCallable, Category = "Skill|Manager")
+    TArray<TSubclassOf<UPGSkill>> GetStartingSkillsForClass(const FName& CharacterClass) const;
+
+protected:
+    // 스킬 데이터 테이블
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Manager")
+    UDataTable* SkillDataTable;
+
+    // 캐릭터 클래스별 시작 스킬 테이블
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Manager")
+    UDataTable* StartingSkillsTable;
+
+    // 스킬 클래스 캐시
+    UPROPERTY(Transient)
+    TMap<FName, TSubclassOf<UPGSkill>> SkillClassMap;
+};
+3.8. UPGSkillTree (스킬 트리)
+cpp
+// PGSkillTree.h
+#pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/NoExportTypes.h"
+#include "PGSkill.h"
+#include "PGSkillTree.generated.h"
+
+/**
+ * 스
+
+계속하기
+
+계속해서 UPGSkillTree 클래스와 나머지 구현을 완성하겠습니다.
+
+cpp
+// PGSkillTree.h (계속)
+#pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/NoExportTypes.h"
+#include "PGSkill.h"
+#include "PGSkillTree.generated.h"
+
+/**
+ * 스킬 트리 노드 구조체
+ */
+USTRUCT(BlueprintType)
+struct FPGSkillTreeNode
+{
+    GENERATED_BODY()
+
+    // 노드 ID
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill Tree")
+    FName NodeId;
+
+    // 스킬 클래스
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill Tree")
+    TSubclassOf<UPGSkill> SkillClass;
+
+    // 필요 스킬 포인트
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill Tree")
+    int32 PointsRequired;
+
+    // 필요 캐릭터 레벨
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill Tree")
+    int32 LevelRequired;
+
+    // 선행 노드 ID 목록
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill Tree")
+    TArray<FName> PrerequisiteNodes;
+
+    // 위치 (UI 표시용)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill Tree")
+    FVector2D Position;
+
+    // 노드가 획득되었는지 여부
+    UPROPERTY(BlueprintReadWrite, Category = "Skill Tree")
+    bool bIsUnlocked;
+
+    // 기본 생성자
+    FPGSkillTreeNode()
+        : PointsRequired(1)
+        , LevelRequired(1)
+        , Position(FVector2D::ZeroVector)
+        , bIsUnlocked(false)
+    {
+    }
+};
+
+/**
+ * 스킬 트리 범주 구조체
+ */
+USTRUCT(BlueprintType)
+struct FPGSkillTreeCategory
+{
+    GENERATED_BODY()
+
+    // 범주 ID
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill Tree")
+    FName CategoryId;
+
+    // 범주 이름
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill Tree")
+    FText CategoryName;
+
+    // 범주 설명
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill Tree")
+    FText CategoryDescription;
+
+    // 범주 아이콘
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill Tree")
+    UTexture2D* CategoryIcon;
+
+    // 이 범주의 스킬 노드들
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill Tree")
+    TArray<FPGSkillTreeNode> Nodes;
+
+    // 기본 생성자
+    FPGSkillTreeCategory()
+        : CategoryIcon(nullptr)
+    {
+    }
+};
+
+/**
+ * UPGSkillTree - 캐릭터의 스킬 트리를 관리하는 클래스
+ */
+UCLASS(BlueprintType)
+class UPLAYGROUND_API UPGSkillTree : public UObject
+{
+    GENERATED_BODY()
+
+public:
+    UPGSkillTree();
+
+    // 범주 및 노드 검색 함수
+    UFUNCTION(BlueprintPure, Category = "Skill Tree")
+    FPGSkillTreeCategory* FindCategory(const FName& CategoryId);
+
+    UFUNCTION(BlueprintPure, Category = "Skill Tree")
+    FPGSkillTreeNode* FindNode(const FName& NodeId);
+
+    // 노드 잠금 해제 가능한지 확인
+    UFUNCTION(BlueprintCallable, Category = "Skill Tree")
+    bool CanUnlockNode(const FName& NodeId, int32 AvailablePoints, int32 CharacterLevel) const;
+
+    // 노드 잠금 해제
+    UFUNCTION(BlueprintCallable, Category = "Skill Tree")
+    bool UnlockNode(const FName& NodeId, int32& RemainingPoints);
+
+    // 스킬 트리 리셋
+    UFUNCTION(BlueprintCallable, Category = "Skill Tree")
+    void ResetSkillTree();
+
+    // 모든 범주 가져오기
+    UFUNCTION(BlueprintPure, Category = "Skill Tree")
+    TArray<FPGSkillTreeCategory> GetAllCategories() const { return Categories; }
+
+    // 잠금 해제된 모든 노드 가져오기
+    UFUNCTION(BlueprintPure, Category = "Skill Tree")
+    TArray<FPGSkillTreeNode> GetUnlockedNodes() const;
+
+protected:
+    // 스킬 트리 범주들
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Skill Tree")
+    TArray<FPGSkillTreeCategory> Categories;
+
+    // 스킬 트리 소유자 (캐릭터 등)
+    UPROPERTY(BlueprintReadOnly, Category = "Skill Tree")
+    AActor* Owner;
+};
+4. 스킬 시스템 구현
+4.1. PGSkill.cpp 구현
+cpp
+// PGSkill.cpp
+#include "Skills/PGSkill.h"
+
+UPGSkill::UPGSkill()
+    : SkillIcon(nullptr)
+    , SkillType(EPGSkillType::Active)
+    , CostType(EPGSkillCostType::None)
+    , TargetType(EPGSkillTargetType::Self)
+    , CurrentLevel(0)
+    , MaxLevel(5)
+    , RemainingCooldown(0.0f)
+    , bIsSkillActive(false)
+{
+}
+
+bool UPGSkill::SetSkillLevel(int32 NewLevel)
+{
+    if (NewLevel < 0 || NewLevel > MaxLevel || SkillLevelData.Num() <= NewLevel)
+    {
+        return false;
+    }
+
+    CurrentLevel = NewLevel;
+    return true;
+}
+
+bool UPGSkill::IncreaseSkillLevel()
+{
+    return SetSkillLevel(CurrentLevel + 1);
+}
+
+FPGSkillLevelData UPGSkill::GetCurrentLevelData() const
+{
+    if (CurrentLevel > 0 && CurrentLevel <= SkillLevelData.Num())
+    {
+        return SkillLevelData[CurrentLevel - 1];
+    }
+    
+    // 유효하지 않은 레벨인 경우 빈 데이터 반환
+    return FPGSkillLevelData();
+}
+
+bool UPGSkill::CanUseSkill(AActor* Caster, AActor* Target) const
+{
+    if (!Caster || CurrentLevel <= 0)
+    {
+        return false;
+    }
+
+    // 쿨다운 체크
+    if (RemainingCooldown > 0.0f)
+    {
+        return false;
+    }
+
+    // 캐스터 태그 검사
+    UGameplayTagsManager* TagManager = UGameplayTagsManager::Get();
+    IGameplayTagAssetInterface* TagInterface = Cast<IGameplayTagAssetInterface>(Caster);
+    
+    if (TagInterface)
+    {
+        FGameplayTagContainer ActorTags;
+        TagInterface->GetOwnedGameplayTags(ActorTags);
+        
+        // 필요 태그 검사
+        if (!RequiredTags.IsEmpty() && !ActorTags.HasAll(RequiredTags))
+        {
+            return false;
+        }
+        
+        // 블로킹 태그 검사
+        if (!BlockedByTags.IsEmpty() && ActorTags.HasAny(BlockedByTags))
+        {
+            return false;
+        }
+    }
+    
+    // 대상 필요시 대상 검사
+    if (TargetType != EPGSkillTargetType::Self && TargetType != EPGSkillTargetType::AOE && !Target)
+    {
+        return false;
+    }
+    
+    return true;
+}
+
+bool UPGSkill::UseSkill(AActor* Caster, AActor* Target)
+{
+    if (!CanUseSkill(Caster, Target))
+    {
+        return false;
+    }
+    
+    // 코스트 지불
+    if (!PaySkillCost(Caster))
+    {
+        return false;
+    }
+    
+    // 스킬 실행
+    if (!ExecuteSkill(Caster, Target))
+    {
+        return false;
+    }
+    
+    // 쿨다운 설정
+    RemainingCooldown = GetCurrentLevelData().Cooldown;
+    
+    return true;
+}
+
+void UPGSkill::UpdateSkill(float DeltaTime)
+{
+    // 쿨다운 업데이트
+    if (RemainingCooldown > 0.0f)
+    {
+        RemainingCooldown = FMath::Max(0.0f, RemainingCooldown - DeltaTime);
+    }
+}
+
+bool UPGSkill::ExecuteSkill(AActor* Caster, AActor* Target)
+{
+    // 기본 구현은 단순히 효과 적용
+    ApplySkillEffects(Caster, Target);
+    return true;
+}
+
+bool UPGSkill::PaySkillCost(AActor* Caster)
+{
+    if (!Caster || CostType == EPGSkillCostType::None)
+    {
+        return true; // 코스트가 없으면 항상 성공
+    }
+    
+    float CostValue = GetCurrentLevelData().CostValue;
+    
+    // 코스트 타입에 따라 적절한 로직 구현
+    // 실제 구현은 리소스 컴포넌트 등을 통해 구현
+    // 여기서는 간략화
+    
+    switch (CostType)
+    {
+    case EPGSkillCostType::Mana:
+        // 마나 체크 및 소모
+        // ex: UPGResourceComponent* ResourceComp = Caster->FindComponentByClass<UPGResourceComponent>();
+        // if (ResourceComp && ResourceComp->HasEnoughMana(CostValue))
+        // {
+        //     ResourceComp->ConsumeMana(CostValue);
+        //     return true;
+        // }
+        break;
+        
+    case EPGSkillCostType::Health:
+        // 체력 체크 및 소모
+        break;
+        
+    case EPGSkillCostType::Stamina:
+        // 스태미나 체크 및 소모
+        break;
+        
+    // 기타 리소스 타입
+    default:
+        break;
+    }
+    
+    // 실제 구현에서는 리소스 체크 후 리턴
+    return true;
+}
+
+void UPGSkill::ApplySkillEffects(AActor* Caster, AActor* Target)
+{
+    if (!Caster)
+    {
+        return;
+    }
+    
+    // 자기 자신 스킬인 경우 캐스터를 대상으로 설정
+    if (TargetType == EPGSkillTargetType::Self)
+    {
+        Target = Caster;
+    }
+    
+    // 현재 레벨의 스킬 효과 적용
+    if (CurrentLevel > 0 && SkillLevelData.IsValidIndex(CurrentLevel - 1))
+    {
+        const FPGSkillLevelData& LevelData = SkillLevelData[CurrentLevel - 1];
+        
+        // 각 효과 적용
+        for (const FPGSkillEffect& Effect : LevelData.Effects)
+        {
+            // 효과 적용 로직
+            // 실제 구현은 게임 특성에 맞게 구현
+            // 예: 데미지 시스템, 버프/디버프 시스템 등을 통해 효과 적용
+            
+            // 효과 지속 시간이 0보다 크면 지속 효과
+            if (Effect.Duration > 0.0f)
+            {
+                // 지속 효과 적용 (버프/디버프 등)
+                // ex: UPGBuffSystem::ApplyBuff(Target, Effect);
+            }
+            else
+            {
+                // 즉시 효과 적용 (데미지, 힐 등)
+                // ex: UPGDamageSystem::ApplyDamage(Caster, Target, Effect.Value);
+            }
+        }
+    }
+}
+4.2. PGSkillComponent.cpp 구현
+cpp
+// PGSkillComponent.cpp
+#include "Skills/PGSkillComponent.h"
+
+UPGSkillComponent::UPGSkillComponent()
+    : MaxQuickSlots(8)
+{
+    PrimaryComponentTick.bCanEverTick = true;
+    
+    // 퀵 슬롯 배열 초기화
+    QuickSlots.SetNum(MaxQuickSlots);
+    for (int32 i = 0; i < MaxQuickSlots; ++i)
+    {
+        QuickSlots[i] = nullptr;
+    }
+}
+
+void UPGSkillComponent::BeginPlay()
+{
+    Super::BeginPlay();
+}
+
+void UPGSkillComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+    Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+    // 획득한 모든 스킬 업데이트
+    for (UPGSkill* Skill : AcquiredSkills)
+    {
+        if (Skill)
+        {
+            Skill->UpdateSkill(DeltaTime);
+            
+            // 쿨다운 변경 이벤트 발생
+            if (Skill->GetRemainingCooldown() > 0.0f)
+            {
+                OnSkillCooldownChanged.Broadcast(Skill, Skill->GetRemainingCooldown());
+            }
+        }
+    }
+}
+
+bool UPGSkillComponent::AcquireSkill(TSubclassOf<UPGSkill> SkillClass, int32 Level)
+{
+    if (!SkillClass)
+    {
+        return false;
+    }
+    
+    // 이미 획득한 스킬인지 확인
+    UPGSkill* ExistingSkill = FindSkillByClass(SkillClass);
+    if (ExistingSkill)
+    {
+        // 이미 획득한 경우 레벨만 설정
+        if (ExistingSkill->SetSkillLevel(Level))
+        {
+            OnSkillAcquired.Broadcast(ExistingSkill, Level);
+            return true;
+        }
+        return false;
+    }
+    
+    // 새 스킬 인스턴스 생성
+    UPGSkill* NewSkill = NewObject<UPGSkill>(GetOwner(), SkillClass);
+    if (NewSkill)
+    {
+        NewSkill->SetSkillLevel(Level);
+        AcquiredSkills.Add(NewSkill);
+        
+        // 패시브 스킬인 경우 자동 활성화
+        UPGPassiveSkill* PassiveSkill = Cast<UPGPassiveSkill>(NewSkill);
+        if (PassiveSkill)
+        {
+            PassiveSkill->ActivatePassive(GetOwner());
+            ActiveSkills.Add(NewSkill);
+        }
+        
+        OnSkillAcquired.Broadcast(NewSkill, Level);
+        return true;
+    }
+    
+    return false;
+}
+
+bool UPGSkillComponent::UpgradeSkill(UPGSkill* Skill)
+{
+    if (!Skill || !AcquiredSkills.Contains(Skill))
+    {
+        return false;
+    }
+    
+    int32 NewLevel = Skill->GetCurrentLevel() + 1;
+    if (Skill->SetSkillLevel(NewLevel))
+    {
+        // 패시브 스킬인 경우 효과 갱신
+        UPGPassiveSkill* PassiveSkill = Cast<UPGPassiveSkill>(Skill);
+        if (PassiveSkill)
+        {
+            PassiveSkill->UpdatePassiveEffect(GetOwner());
+        }
+        
+        OnSkillAcquired.Broadcast(Skill, NewLevel);
+        return true;
+    }
+    
+    return false;
+}
+
+bool UPGSkillComponent::UseSkill(UPGSkill* Skill, AActor* Target)
+{
+    if (!Skill || !AcquiredSkills.Contains(Skill))
+    {
+        return false;
+    }
+    
+    if (Skill->UseSkill(GetOwner(), Target))
+    {
+        OnSkillUsed.Broadcast(Skill);
+        return true;
+    }
+    
+    return false;
+}
+
+bool UPGSkillComponent::UseSkillByIndex(int32 SkillIndex, AActor* Target)
+{
+    if (SkillIndex >= 0 && SkillIndex < QuickSlots.Num() && QuickSlots[SkillIndex] != nullptr)
+    {
+        return UseSkill(QuickSlots[SkillIndex], Target);
+    }
+    
+    return false;
+}
+
+UPGSkill* UPGSkillComponent::FindSkillByClass(TSubclassOf<UPGSkill> SkillClass) const
+{
+    for (UPGSkill* Skill : AcquiredSkills)
+    {
+        if (Skill && Skill->GetClass() == SkillClass)
+        {
+            return Skill;
+        }
+    }
+    
+    return nullptr;
+}
+
+UPGSkill* UPGSkillComponent::FindSkillByName(const FText& SkillName) const
+{
+    for (UPGSkill* Skill : AcquiredSkills)
+    {
+        if (Skill && Skill->GetSkillName().EqualTo(SkillName))
+        {
+            return Skill;
+        }
+    }
+    
+    return nullptr;
+}
+
+UPGSkill* UPGSkillComponent::FindSkillByTag(const FGameplayTag& SkillTag) const
+{
+    for (UPGSkill* Skill : AcquiredSkills)
+    {
+        if (Skill && Skill->HasSkillTag(SkillTag))
+        {
+            return Skill;
+        }
+    }
+    
+    return nullptr;
+}
+
+bool UPGSkillComponent::AssignSkillToQuickSlot(UPGSkill* Skill, int32 SlotIndex)
+{
+    if (!Skill || !AcquiredSkills.Contains(Skill) || SlotIndex < 0 || SlotIndex >= QuickSlots.Num())
+    {
+        return false;
+    }
+    
+    QuickSlots[SlotIndex] = Skill;
+    return true;
+}
+
+bool UPGSkillComponent::ClearQuickSlot(int32 SlotIndex)
+{
+    if (SlotIndex < 0 || SlotIndex >= QuickSlots.Num())
+    {
+        return false;
+    }
+    
+    QuickSlots[SlotIndex] = nullptr;
+    return true;
+}
+
+UPGSkill* UPGSkillComponent::GetSkillFromQuickSlot(int32 SlotIndex) const
+{
+    if (SlotIndex >= 0 && SlotIndex < QuickSlots.Num())
+    {
+        return QuickSlots[SlotIndex];
+    }
+    
+    return nullptr;
+}
+4.3. PGSkillManager.cpp 구현
+cpp
+// PGSkillManager.cpp
+#include "Skills/PGSkillManager.h"
+#include "Skills/PGSkill.h"
+#include "Engine/DataTable.h"
+
+UPGSkillManager::UPGSkillManager()
+    : SkillDataTable(nullptr)
+    , StartingSkillsTable(nullptr)
+{
+}
+
+void UPGSkillManager::Initialize()
+{
+    Super::Initialize();
+    
+    // 스킬 데이터 테이블 로드
+    LoadSkillDataTables();
+}
+
+void UPGSkillManager::Shutdown()
+{
+    Super::Shutdown();
+    
+    // 캐시 클리어
+    SkillClassMap.Empty();
+}
+
+void UPGSkillManager::LoadSkillDataTables()
+{
+    if (!SkillDataTable)
+    {
+        return;
+    }
+    
+    // 스킬 데이터 테이블에서 모든 스킬 정보 로드 및 캐싱
+    TArray<FName> RowNames = SkillDataTable->GetRowNames();
+    for (const FName& RowName : RowNames)
+    {
+        FString ContextString;
+        FPGSkillTableRow* SkillRow = SkillDataTable->FindRow<FPGSkillTableRow>(RowName, ContextString);
+        
+        if (SkillRow && SkillRow->SkillClass)
+        {
+            SkillClassMap.Add(RowName, SkillRow->SkillClass);
+        }
+    }
+}
+
+UPGSkill* UPGSkillManager::CreateSkillInstance(TSubclassOf<UPGSkill> SkillClass, UObject* Outer)
+{
+    if (!SkillClass)
+    {
+        return nullptr;
+    }
+    
+    if (!Outer)
+    {
+        Outer = this;
+    }
+    
+    return NewObject<UPGSkill>(Outer, SkillClass);
+}
+
+TSubclassOf<UPGSkill> UPGSkillManager::GetSkillClassById(const FName& SkillId) const
+{
+    TSubclassOf<UPGSkill> SkillClass = nullptr;
+    if (SkillClassMap.Contains(SkillId))
+    {
+        SkillClass = SkillClassMap[SkillId];
+    }
+    
+    return SkillClass;
+}
+
+TArray<TSubclassOf<UPGSkill>> UPGSkillManager::GetStartingSkillsForClass(const FName& CharacterClass) const
+{
+    TArray<TSubclassOf<UPGSkill>> StartingSkills;
+    
+    if (!StartingSkillsTable)
+    {
+        return StartingSkills;
+    }
+    
+    // 캐릭터 클래스에 해당하는 시작 스킬 로드
+    FString ContextString;
+    FPGStartingSkillsRow* SkillsRow = StartingSkillsTable->FindRow<FPGStartingSkillsRow>(CharacterClass, ContextString);
+    
+    if (SkillsRow)
+    {
+        for (const FName& SkillId : SkillsRow->StartingSkills)
+        {
+            TSubclassOf<UPGSkill> SkillClass = GetSkillClassById(SkillId);
+            if (SkillClass)
+            {
+                StartingSkills.Add(SkillClass);
+            }
+        }
+    }
+    
+    return StartingSkills;
+}
+5. 데이터 테이블 구조체
+cpp
+// PGSkillTypes.h
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Engine/DataTable.h"
+#include "PGSkill.h"
+#include "PGSkillTypes.generated.h"
+
+/**
+ * 스킬 테이블 행 구조체
+ */
+USTRUCT(BlueprintType)
+struct FPGSkillTableRow : public FTableRowBase
+{
+    GENERATED_BODY()
+
+    // 스킬 이름
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill")
+    FText Name;
+
+    // 스킬 설명
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill")
+    FText Description;
+
+    // 스킬 아이콘
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill")
+    UTexture2D* Icon;
+
+    // 스킬 클래스
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill")
+    TSubclassOf<UPGSkill> SkillClass;
+
+    // 스킬 타입
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill")
+    EPGSkillType Type;
+
+    // 스킬 태그
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill")
+    FGameplayTagContainer Tags;
+};
+
+/**
+ * 캐릭터 클래스별 시작 스킬 구조체
+ */
+USTRUCT(BlueprintType)
+struct FPGStartingSkillsRow : public FTableRowBase
+{
+    GENERATED_BODY()
+
+    // 시작 스킬 ID 배열
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill")
+    TArray<FName> StartingSkills;
+};
+6. 게임 피쳐 액션 구현
+cpp
+// PGSkillsFeatureAction.h
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Features/PGGameFeatureManagerAction.h"
+#include "Skills/PGSkillManager.h"
+#include "PGSkillsFeatureAction.generated.h"
+
+/**
+ * UPGSkillsFeatureAction - 스킬 시스템을 게임 피쳐로 등록하는 액션
+ */
+UCLASS()
+class UPLAYGROUND_API UPGSkillsFeatureAction : public UPGGameFeatureManagerAction
+{
+    GENERATED_BODY()
+
+public:
+    UPGSkillsFeatureAction();
+
+    // GameFeatureAction 인터페이스
+    virtual void OnGameFeatureActivating() override;
+    virtual void OnGameFeatureDeactivating() override;
+
+private:
+    // 스킬 매니저 인스턴스
+    UPROPERTY()
+    UPGSkillManager* SkillManager;
+};
+cpp
+// PGSkillsFeatureAction.cpp
+#include "Features/PGSkillsFeatureAction.h"
+#include "Managers/PGManagerSubsystem.h"
+#include "Skills/PGSkillManager.h"
+
+UPGSkillsFeatureAction::UPGSkillsFeatureAction()
+    : SkillManager(nullptr)
+{
+}
+
+void UPGSkillsFeatureAction::OnGameFeatureActivating()
+{
+    // 게임 인스턴스 서브시스템에서 매니저 서브시스템 얻기
+    UGameInstance* GameInstance = GetGameInstance();
+    if (GameInstance)
+    {
+        UPGManagerSubsystem* ManagerSubsystem = GameInstance->GetSubsystem<UPGManagerSubsystem>();
+        if (ManagerSubsystem)
+        {
+            // 스킬 매니저 생성 및 등록
+            SkillManager = NewObject<UPGSkillManager>(ManagerSubsystem);
+            if (SkillManager)
+            {
+                ManagerSubsystem->RegisterManager(SkillManager);
+                SkillManager->Initialize();
+            }
+        }
+    }
+}
+
+void UPGSkillsFeatureAction::OnGameFeatureDeactivating()
+{
+    // 게임 인스턴스 서브시스템에서 매니저 서브시스템 얻기
+    UGameInstance* GameInstance = GetGameInstance();
+    if (GameInstance)
+    {
+        UPGManagerSubsystem* ManagerSubsystem = GameInstance->GetSubsystem<UPGManagerSubsystem>();
+        if (ManagerSubsystem && SkillManager)
+        {
+            // 스킬 매니저 종료 및 등록 해제
+            SkillManager->Shutdown();
+            ManagerSubsystem->UnregisterManager(SkillManager);
+            SkillManager = nullptr;
+        }
+    }
+}
+7. 시스템 통합 방법
+7.1. 캐릭터에 스킬 컴포넌트 추가
+cpp
+// PGPlayerCharacter.h
+#pragma once
+
+#include "CoreMinimal.h"
+#include "GameFramework/Character.h"
+#include "Skills/PGSkillComponent.h"
+#include "PGPlayerCharacter.generated.h"
+
+UCLASS()
+class UPLAYGROUND_API APGPlayerCharacter : public ACharacter
+{
+    GENERATED_BODY()
+
+public:
+    APGPlayerCharacter();
+
+protected:
+    virtual void BeginPlay() override;
+
+public:
+    // 스킬 컴포넌트 접근자
+    UFUNCTION(BlueprintCallable, Category = "Skills")
+    UPGSkillComponent* GetSkillComponent() const { return SkillComponent; }
+
+private:
+    // 캐릭터의 스킬 컴포넌트
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+    UPGSkillComponent* SkillComponent;
+};
+7.2. 스킬 사용을 위한 인터페이스 정의
+cpp
+// PGSkillableInterface.h
+#pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/Interface.h"
+#include "Skills/PGSkill.h"
+#include "PGSkillableInterface.generated.h"
+
+UINTERFACE(MinimalAPI, BlueprintType)
+class UPGSkillableInterface : public UInterface
+{
+    GENERATED_BODY()
+};
+
+/**
+ * 스킬을 사용할 수 있는 객체를 위한 인터페이스
+ */
+class UPLAYGROUND_API IPGSkillableInterface
+{
+    GENERATED_BODY()
+
+public:
+    // 스킬 사용 함수
+    UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Skill")
+    bool UseSkill(UPGSkill* Skill, AActor* Target);
+
+    // 스킬 사용 가능 여부 체크
+    UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Skill")
+    bool CanUseSkill(U
+
+계속하기
+
+7.2. 스킬 사용을 위한 인터페이스 정의 (계속)
+cpp
+// PGSkillableInterface.h (계속)
+    // 스킬 사용 가능 여부 체크
+    UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Skill")
+    bool CanUseSkill(UPGSkill* Skill, AActor* Target);
+
+    // 스킬 효과 적용 받기
+    UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Skill")
+    bool ReceiveSkillEffect(AActor* Instigator, UPGSkill* Skill, const FPGSkillEffect& Effect);
+
+    // 스킬 획득
+    UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Skill")
+    bool AcquireSkill(TSubclassOf<UPGSkill> SkillClass, int32 Level);
+
+    // 스킬 컴포넌트 가져오기
+    UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Skill")
+    UPGSkillComponent* GetSkillComponent();
+};
+7.3. 스킬 이펙트 액터 구현
+cpp
+// PGSkillEffectActor.h
+#pragma once
+
+#include "CoreMinimal.h"
+#include "GameFramework/Actor.h"
+#include "Skills/PGSkill.h"
+#include "PGSkillEffectActor.generated.h"
+
+/**
+ * APGSkillEffectActor - 스킬 이펙트를 시각화하는 액터
+ * (예: 지속 범위 표시, 투사체, 소환물 등)
+ */
+UCLASS()
+class UPLAYGROUND_API APGSkillEffectActor : public AActor
+{
+    GENERATED_BODY()
+    
+public:    
+    APGSkillEffectActor();
+
+protected:
+    virtual void BeginPlay() override;
+
+public:    
+    virtual void Tick(float DeltaTime) override;
+
+    // 스킬 이펙트 초기화
+    UFUNCTION(BlueprintCallable, Category = "Skill|Effect")
+    virtual void InitializeSkillEffect(AActor* Instigator, UPGSkill* Skill, const FPGSkillEffect& Effect);
+
+    // 이펙트 활성화
+    UFUNCTION(BlueprintCallable, Category = "Skill|Effect")
+    virtual void ActivateEffect();
+
+    // 이펙트 비활성화
+    UFUNCTION(BlueprintCallable, Category = "Skill|Effect")
+    virtual void DeactivateEffect();
+
+protected:
+    // 시각 효과
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Effect")
+    UParticleSystemComponent* ParticleComponent;
+
+    // 오디오 효과
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Effect")
+    UAudioComponent* AudioComponent;
+
+    // 스킬 데이터
+    UPROPERTY(BlueprintReadOnly, Category = "Skill")
+    UPGSkill* OwningSkill;
+
+    // 스킬 효과 데이터
+    UPROPERTY(BlueprintReadOnly, Category = "Skill")
+    FPGSkillEffect EffectData;
+
+    // 이펙트 지속 시간
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Effect")
+    float EffectDuration;
+
+    // 이펙트 타이머 핸들
+    FTimerHandle EffectTimerHandle;
+};
+7.4. 스킬 트리 UI 컴포넌트 구현
+cpp
+// PGSkillTreeWidget.h
+#pragma once
+
+#include "CoreMinimal.h"
+#include "UI/PGWidgetBase.h"
+#include "Skills/PGSkillTree.h"
+#include "PGSkillTreeWidget.generated.h"
+
+/**
+ * UPGSkillTreeWidget - 스킬 트리 UI 위젯
+ */
+UCLASS()
+class UPLAYGROUND_API UPGSkillTreeWidget : public UPGWidgetBase
+{
+    GENERATED_BODY()
+    
+public:
+    UPGSkillTreeWidget(const FObjectInitializer& ObjectInitializer);
+
+    // 스킬 트리 초기화
+    UFUNCTION(BlueprintCallable, Category = "UI|SkillTree")
+    void InitializeSkillTree(UPGSkillTree* InSkillTree, int32 AvailablePoints);
+
+    // 스킬 노드 클릭 처리
+    UFUNCTION(BlueprintCallable, Category = "UI|SkillTree")
+    void OnSkillNodeClicked(const FName& NodeId);
+
+    // 스킬 범주 변경
+    UFUNCTION(BlueprintCallable, Category = "UI|SkillTree")
+    void ChangeCategory(const FName& CategoryId);
+
+    // 스킬 트리 리셋
+    UFUNCTION(BlueprintCallable, Category = "UI|SkillTree")
+    void ResetSkillTree();
+
+    // 남은 스킬 포인트 업데이트
+    UFUNCTION(BlueprintCallable, Category = "UI|SkillTree")
+    void UpdateAvailablePoints(int32 NewPoints);
+
+protected:
+    // UI 업데이트 및 노드 상태 갱신 
+    UFUNCTION(BlueprintImplementableEvent, Category = "UI|SkillTree")
+    void UpdateSkillTreeUI();
+
+    // 스킬 노드 상태 업데이트
+    UFUNCTION(BlueprintImplementableEvent, Category = "UI|SkillTree")
+    void UpdateNodeState(const FName& NodeId, bool bIsUnlocked, bool bCanUnlock);
+
+protected:
+    // 현재 스킬 트리
+    UPROPERTY(BlueprintReadOnly, Category = "SkillTree")
+    UPGSkillTree* SkillTree;
+
+    // 현재 선택된 범주
+    UPROPERTY(BlueprintReadOnly, Category = "SkillTree")
+    FName CurrentCategoryId;
+
+    // 사용 가능한 스킬 포인트
+    UPROPERTY(BlueprintReadOnly, Category = "SkillTree")
+    int32 AvailableSkillPoints;
+
+    // 캐릭터 레벨
+    UPROPERTY(BlueprintReadOnly, Category = "SkillTree")
+    int32 CharacterLevel;
+};
+8. 스킬 시스템 확장 방안
+8.1. 특수 스킬 타입 추가
+이 기본 프레임워크 위에 다양한 특수 스킬 타입을 추가할 수 있습니다:
+
+연계 스킬 (Combo Skills)
+특정 순서로 스킬을 사용해야 발동되는 추가 효과
+특정 스킬 사용 후 일정 시간 내 다음 스킬 사용 시 강화 효과
+변신 스킬 (Transform Skills)
+캐릭터의 외관과 능력치를 일시적으로 변경
+소환 스킬 (Summon Skills)
+NPC 아군을 소환하여 전투 보조
+반사 스킬 (Reflection Skills)
+받은 피해를 일정 비율 반사
+8.2. 스킬 강화 시스템
+스킬 룬/보석 시스템
+스킬에 특수 효과를 부여하는 아이템 슬롯 추가
+각 스킬에 슬롯을 추가하고 다양한 효과의 룬/보석 장착 가능
+스킬 진화 시스템
+특정 조건을 만족하면 스킬이 업그레이드되어 새로운 형태로 변환
+예: "화염구" 스킬이 100회 사용 후 "폭발 화염구"로 진화
+스킬 마스터리 시스템
+스킬 사용 횟수 등에 따라 추가 보너스 제공
+마스터리 레벨에 따라 스킬 효과 향상
+9. 스킬 데이터 예시
+아래는 실제 게임에서 사용할 수 있는 몇 가지 스킬 데이터 예시입니다:
+
+9.1. 기본 화염 화살 (액티브 공격 스킬)
+ini
+[화염 화살]
+- 스킬 타입: 액티브
+- 대상 타입: 단일 대상
+- 코스트: 마나 15
+- 쿨다운: 3초
+- 설명: "화염으로 이루어진 화살을 발사하여 적에게 화상 피해를 입힙니다."
+
+레벨 1: 화염 피해 20, 2초간 초당 5의 화상 피해
+레벨 2: 화염 피해 30, 3초간 초당 10의 화상 피해
+레벨 3: 화염 피해 45, 4초간 초당 15의 화상 피해
+9.2. 방어 태세 (토글 스킬)
+ini
+[방어 태세]
+- 스킬 타입: 토글
+- 대상 타입: 자신
+- 코스트: 초당 스태미나 5
+- 쿨다운: 5초 (비활성화 후)
+- 설명: "방어 태세를 취해 받는 피해를 감소시키지만, 이동 속도가 감소합니다."
+
+레벨 1: 피해 감소 15%, 이동 속도 감소 20%
+레벨 2: 피해 감소 25%, 이동 속도 감소 15%
+레벨 3: 피해 감소 35%, 이동 속도 감소 10%
+9.3. 체력 강화 (패시브 스킬)
+ini
+[체력 강화]
+- 스킬 타입: 패시브
+- 대상 타입: 자신
+- 설명: "최대 체력과 체력 재생률이 증가합니다."
+
+레벨 1: 최대 체력 +10%, 체력 재생 +5%
+레벨 2: 최대 체력 +20%, 체력 재생 +10%
+레벨 3: 최대 체력 +30%, 체력 재생 +15%
+9.4. 회오리 베기 (범위 공격 스킬)
+ini
+[회오리 베기]
+- 스킬 타입: 액티브
+- 대상 타입: 범위
+- 범위: 원형 (반경 5m)
+- 코스트: 스태미나 30
+- 쿨다운: 8초
+- 설명: "무기를 휘둘러 주변의 모든 적에게 피해를 입힙니다."
+
+레벨 1: 물리 피해 35, 넉백 1m
+레벨 2: 물리 피해 55, 넉백 2m
+레벨 3: 물리 피해 80, 넉백 3m, 2초간 기절
+10. 결론
+이렇게 설계한 스킬 시스템은 다음과 같은 특징을 갖습니다:
+
+모듈화: 각 스킬과 효과가 독립적인 클래스로 구현되어 확장과 유지보수가 용이
+확장성: 새로운 스킬 타입이나 효과를 쉽게 추가 가능
+데이터 주도: 대부분의 스킬 속성이 데이터 테이블로 관리되어 프로그래머 없이도 게임 디자이너가 조정 가능
+이벤트 기반: 델리게이트를 통한 이벤트 시스템으로 UI 갱신 등 외부 시스템과 쉽게 연동
+게임 피쳐 통합: 언리얼 엔진의 게임 피쳐 플러그인 시스템과 통합되어 언제든지 추가/제거 가능
+이 스킬 시스템 설계를 기반으로 RPG 프로젝트에 다양한 캐릭터 능력과 게임플레이 요소를 구현할 수 있으며, 필요에 따라 추가 기능을 확장할 수 있습니다.
+
+
+이제 모든 스킬 시스템 클래스들이 프로젝트에 추가되었습니다. 다음은 추가된 클래스의 요약입니다:
+
+기본 클래스:
+
+UPGSkill - 모든 스킬의 기본 클래스
+UPGPassiveSkill - 패시브 스킬 클래스
+UPGActiveSkill - 액티브 스킬 클래스
+UPGTargetedSkill - 대상 지정 스킬 클래스
+UPGAreaSkill - 범위 스킬 클래스
+
+
+관리 클래스:
+
+UPGSkillComponent - 캐릭터에 부착되는 스킬 관리 컴포넌트
+UPGSkillManager - 게임 전체 스킬 시스템 관리 매니저
+UPGSkillTree - 스킬 트리 관리 클래스
+
+
+효과 클래스:
+
+APGSkillEffectActor - 스킬 이펙트 시각화 액터
+
+
+인터페이스 및 데이터 클래스:
+
+IPGSkillableInterface - 스킬 사용 가능 객체 인터페이스
+각종 데이터 구조체 (FPGSkillEffect, FPGSkillLevelData 등)
+
+
+피쳐 액션:
+
+UPGSkillsFeatureAction - 게임 피쳐 플러그인 액션
+
+
+
+이제 이 스킬 시스템을 사용하여 다양한 스킬을 구현하고 캐릭터에게 적용할 수 있습니다. 실제 사용 시에는 다음과 같은 단계로 진행할 수 있습니다:
+
+캐릭터 클래스에 UPGSkillComponent 추가
+다양한 스킬 클래스 구현 (UPGActiveSkill, UPGPassiveSkill 등을 상속)
+스킬 데이터 테이블 설정
+게임 피쳐로 스킬 시스템 활성화
+게임플레이 중 스킬 획득 및 사용 구현
+
+이 시스템은 확장성이 높아 새로운 스킬 타입이나 효과를 쉽게 추가할 수 있습니다.
