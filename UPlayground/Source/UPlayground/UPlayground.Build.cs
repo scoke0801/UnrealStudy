@@ -18,7 +18,8 @@ public class UPlayground : ModuleRules
 			"InputCore", 
 			"EnhancedInput",
 			"GameplayTags",
-            "DeveloperSettings"
+            "DeveloperSettings",
+			"UMG"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { 
@@ -27,8 +28,8 @@ public class UPlayground : ModuleRules
             "ModularGameplay"
         });
 
-		// Uncomment if you are using Slate UI
-		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
+		// UI 시스템을 위한 Slate 및 SlateCore 의존성 추가
+		PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
 		
 		// Uncomment if you are using online features
 		// PrivateDependencyModuleNames.Add("OnlineSubsystem");
