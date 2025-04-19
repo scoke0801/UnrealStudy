@@ -25,6 +25,9 @@ APGPlayerCharacter::APGPlayerCharacter()
     FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
     FollowCamera->bUsePawnControlRotation = false;
 
+    // 카메라 시스템 생성
+    CameraSystem = CreateDefaultSubobject<UPGCameraSystem>(TEXT("CameraSystem"));
+
     // 캐릭터 무브먼트 설정
     GetCharacterMovement()->bOrientRotationToMovement = true;
     GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f);
@@ -69,6 +72,12 @@ void APGPlayerCharacter::BeginPlay()
             }
         }
     }
+    
+    // 카메라 시스템 초기화
+    if (CameraSystem)
+    {
+        CameraSystem->Initialize(CameraBoom, FollowCamera);
+    }
 }
 
 void APGPlayerCharacter::Tick(float DeltaTime)
@@ -83,7 +92,32 @@ void APGPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
     Super::SetupPlayerInputComponent(PlayerInputComponent);
 
     // EnhancedInput 설정
-    // 구체적인 입력 처리는 요구사항에 따라 구현하지 않음
+    if (UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent))
+    {
+        // 기존 기본 입력 매핑 설정
+        // (구체적인 구현은 생략)
+        
+        // 카메라 관련 입력 바인딩
+        if (CameraZoomAction)
+        {
+            EnhancedInputComponent->BindAction(CameraZoomAction, ETriggerEvent::Triggered, this, &APGPlayerCharacter::OnCameraZoom);
+        }
+        
+        if (CameraSwitchAction)
+        {
+            EnhancedInputComponent->BindAction(CameraSwitchAction, ETriggerEvent::Triggered, this, &APGPlayerCharacter::OnCameraSwitch);
+        }
+        
+        if (FreeCameraMoveAction)
+        {
+            EnhancedInputComponent->BindAction(FreeCameraMoveAction, ETriggerEvent::Triggered, this, &APGPlayerCharacter::OnFreeCameraMove);
+        }
+        
+        if (FreeCameraRotateAction)
+        {
+            EnhancedInputComponent->BindAction(FreeCameraRotateAction, ETriggerEvent::Triggered, this, &APGPlayerCharacter::OnFreeCameraRotate);
+        }
+    }
 }
 
 void APGPlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -189,4 +223,53 @@ APGBaseCharacter* APGPlayerCharacter::FindInteractableTarget()
     // 실제 구현에서는 트레이스나 오버랩을 통해 가장 가까운 상호작용 가능 대상을 찾음
     
     return nullptr; // 구체적인 구현은 제외
+}
+
+// 카메라 관련 입력 처리 함수
+void APGPlayerCharacter::OnCameraZoom(const FInputActionValue& Value)
+{
+    if (!CameraSystem || !IsLocalPlayer())
+        return;
+    
+    float ZoomValue = Value.Get<float>();
+    CameraSystem->ProcessCameraZoom(ZoomValue);
+}
+
+void APGPlayerCharacter::OnCameraSwitch(const FInputActionValue& Value)
+{
+    if (!CameraSystem || !IsLocalPlayer())
+        return;
+    
+    // 액션 트리거 시 다음 카메라 모드로 전환
+    CameraSystem->CycleToNextCameraMode();
+}
+
+void APGPlayerCharacter::OnFreeCameraMove(const FInputActionValue& Value)
+{
+    if (!CameraSystem || !IsLocalPlayer())
+        return;
+    
+    // 카메라 시스템이 자유 시점 모드인 경우에만 처리
+    if (CameraSystem->GetCurrentCameraMode() == EPGCameraMode::FreeCamera)
+    {
+        FVector Direction = Value.Get<FVector>();
+        CameraSystem->ProcessFreeCameraMovement(Direction);
+    }
+}
+
+void APGPlayerCharacter::OnFreeCameraRotate(const FInputActionValue& Value)
+{
+    if (!CameraSystem || !IsLocalPlayer())
+        return;
+    
+    // 카메라 시스템이 자유 시점 모드인 경우에만 처리
+    if (CameraSystem->GetCurrentCameraMode() == EPGCameraMode::FreeCamera)
+    {
+        FRotator Rotation;
+        Rotation.Pitch = Value.Get<FVector2D>().Y;
+        Rotation.Yaw = Value.Get<FVector2D>().X;
+        Rotation.Roll = 0.0f;
+        
+        CameraSystem->ProcessFreeCameraRotation(Rotation);
+    }
 }

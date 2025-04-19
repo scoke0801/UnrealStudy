@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "PGBaseCharacter.h"
 #include "EnhancedInput/Public/InputActionValue.h" // EnhancedInput 관련
+#include "PGCameraSystem.h"
 #include "PGPlayerCharacter.generated.h"
 
 // 플레이어 유형 (로컬/리모트 구분)
@@ -69,6 +70,10 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     class UCameraComponent* FollowCamera;
 
+    // 카메라 시스템 컴포넌트
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    class UPGCameraSystem* CameraSystem;
+
     // EnhancedInput 액션 매핑
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
     class UInputMappingContext* DefaultMappingContext;
@@ -84,6 +89,19 @@ protected:
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
     class UInputAction* InteractAction;
+    
+    // 카메라 관련 입력 액션
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input|Camera")
+    class UInputAction* CameraZoomAction;
+    
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input|Camera")
+    class UInputAction* CameraSwitchAction;
+    
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input|Camera")
+    class UInputAction* FreeCameraMoveAction;
+    
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input|Camera")
+    class UInputAction* FreeCameraRotateAction;
 
     // 플레이어 메서드
     UFUNCTION(BlueprintCallable, Category = "Player")
@@ -123,4 +141,10 @@ protected:
 private:
     // 상호작용 대상 찾기
     APGBaseCharacter* FindInteractableTarget();
+    
+    // 카메라 관련 입력 처리 함수
+    void OnCameraZoom(const FInputActionValue& Value);
+    void OnCameraSwitch(const FInputActionValue& Value);
+    void OnFreeCameraMove(const FInputActionValue& Value);
+    void OnFreeCameraRotate(const FInputActionValue& Value);
 };
