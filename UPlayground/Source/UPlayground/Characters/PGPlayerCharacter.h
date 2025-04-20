@@ -1,150 +1,73 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
-
 #pragma once
 
 #include "CoreMinimal.h"
 #include "PGBaseCharacter.h"
-#include "EnhancedInput/Public/InputActionValue.h" // EnhancedInput 관련
-#include "PGCameraSystem.h"
+#include "InputActionValue.h"
 #include "PGPlayerCharacter.generated.h"
 
-// 플레이어 유형 (로컬/리모트 구분)
-UENUM(BlueprintType)
-enum class EPGPlayerType : uint8
-{
-    LocalPlayer   UMETA(DisplayName = "Local Player"),
-    RemotePlayer  UMETA(DisplayName = "Remote Player")
-};
-
+/**
+ * 플레이어 캐릭터 클래스
+ */
 UCLASS()
 class UPLAYGROUND_API APGPlayerCharacter : public APGBaseCharacter
 {
     GENERATED_BODY()
-
+    
 public:
     APGPlayerCharacter();
-
-    virtual void BeginPlay() override;
-    virtual void Tick(float DeltaTime) override;
-    virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
     
-    // 상호작용 오버라이드
+    // 입력 처리 설정
+    virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+    
+    // 카메라 컨트롤
+    UFUNCTION(BlueprintCallable, Category = "Camera")
+    void SetCameraDistance(float Distance);
+    
+    // 타겟 선택
+    UFUNCTION(BlueprintCallable, Category = "Combat")
+    void SelectTarget();
+    
+    UFUNCTION(BlueprintCallable, Category = "Combat")
+    void ClearTarget();
+    
+    // 상호작용
     virtual void Interact(APGBaseCharacter* Interactor) override;
 
+    // 상호작용 입력 핸들러
+    void InteractInput(const FInputActionValue& Value);
+    
 protected:
-    // 플레이어 타입 (로컬 또는 리모트)
-    UPROPERTY(Replicated, BlueprintReadOnly, Category = "Player")
-    EPGPlayerType PlayerType;
-
-    // 플레이어 정보
-    UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = "Player Info")
-    FString PlayerName;
-
-    UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = "Player Info")
-    int32 PlayerLevel;
-
-    UPROPERTY(Replicated, BlueprintReadOnly, Category = "Player Stats")
-    int32 Experience;
-
-    UPROPERTY(Replicated, BlueprintReadOnly, Category = "Player Stats")
-    int32 ExperienceForNextLevel;
-
-    // 플레이어 특수 능력치
-    UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = "Player Stats")
-    int32 Strength;
-
-    UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = "Player Stats")
-    int32 Dexterity;
-
-    UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = "Player Stats")
-    int32 Intelligence;
-
-    UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = "Player Stats")
-    int32 Constitution;
-
-    // 플레이어 고유 컴포넌트
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    // BeginPlay
+    virtual void BeginPlay() override;
+    
+    // 카메라 관련 컴포넌트
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
     class USpringArmComponent* CameraBoom;
-
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
     class UCameraComponent* FollowCamera;
-
-    // 카메라 시스템 컴포넌트
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-    class UPGCameraSystem* CameraSystem;
-
-    // EnhancedInput 액션 매핑
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+    
+    // 향상된 입력 컴포넌트
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Input")
+    class UPGEnhancedInputComponent* PGInputComponent;
+    
+    // 입력 맵핑 컨텍스트
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
     class UInputMappingContext* DefaultMappingContext;
-
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-    class UInputAction* MoveAction;
-
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-    class UInputAction* LookAction;
-
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-    class UInputAction* JumpAction;
-
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-    class UInputAction* InteractAction;
     
-    // 카메라 관련 입력 액션
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input|Camera")
-    class UInputAction* CameraZoomAction;
+    // 입력 설정
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
+    class UPGInputConfig* InputConfig;
     
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input|Camera")
-    class UInputAction* CameraSwitchAction;
-    
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input|Camera")
-    class UInputAction* FreeCameraMoveAction;
-    
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input|Camera")
-    class UInputAction* FreeCameraRotateAction;
-
-    // 플레이어 메서드
-    UFUNCTION(BlueprintCallable, Category = "Player")
-    virtual void AddExperience(int32 Amount);
-
-    UFUNCTION(BlueprintCallable, Category = "Player")
-    virtual void CheckLevelUp();
-
-    UFUNCTION(BlueprintCallable, Category = "Player")
-    virtual void AttemptInteraction();
-
-    UFUNCTION(BlueprintCallable, Category = "Player")
-    virtual bool IsLocalPlayer() const;
-
-    // 리모트 플레이어 관련 메서드
-    UFUNCTION(BlueprintCallable, Category = "Player")
-    virtual void SyncWithRemotePlayer();
-
-    // 서버-클라이언트 RPC 함수
-    UFUNCTION(Server, Reliable, WithValidation)
-    void ServerMoveCharacter(const FVector& Direction);
-    
-    UFUNCTION(Server, Reliable, WithValidation)
-    void ServerInteract();
-
-    // 델리게이트 선언
-    DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnExperienceGained, int32, Amount);
-    DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnInventoryOpened);
-    
-    // 이벤트 델리게이트
-    UPROPERTY(BlueprintAssignable, Category = "Player Events")
-    FOnExperienceGained OnExperienceGained;
-    
-    UPROPERTY(BlueprintAssignable, Category = "Player Events")
-    FOnInventoryOpened OnInventoryOpened;
-
-private:
-    // 상호작용 대상 찾기
-    APGBaseCharacter* FindInteractableTarget();
-    
-    // 카메라 관련 입력 처리 함수
-    void OnCameraZoom(const FInputActionValue& Value);
-    void OnCameraSwitch(const FInputActionValue& Value);
-    void OnFreeCameraMove(const FInputActionValue& Value);
-    void OnFreeCameraRotate(const FInputActionValue& Value);
+    // 입력 액션 핸들러
+    void Move(const FInputActionValue& Value);
+    void Look(const FInputActionValue& Value);
+    void JumpAction(const FInputActionValue& Value);
+    void Sprint(const FInputActionValue& Value);
+    void PrimaryAttack(const FInputActionValue& Value);
+    void SecondaryAttack(const FInputActionValue& Value);
+    void UseAbility1(const FInputActionValue& Value);
+    void UseAbility2(const FInputActionValue& Value);
+    void UseAbility3(const FInputActionValue& Value);
+    void UseAbility4(const FInputActionValue& Value);
 };

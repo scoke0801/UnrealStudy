@@ -19,7 +19,8 @@ public class UPlayground : ModuleRules
 			"EnhancedInput",
 			"GameplayTags",
             "DeveloperSettings",
-			"UMG"
+			"UMG",
+			"Niagara"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { 

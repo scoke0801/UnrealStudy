@@ -1,275 +1,276 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
-
-#include "PGPlayerCharacter.h" 
+#include "PGPlayerCharacter.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "../Combat/PGCombatComponent.h"
+#include "../Abilities/PGAbilityComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "EnhancedInput/Public/EnhancedInputComponent.h"
-#include "EnhancedInput/Public/EnhancedInputSubsystems.h"
-#include "Net/UnrealNetwork.h"
-#include "PGNPC.h"
+#include "../Input/PGEnhancedInputComponent.h"
+#include "../Input/PGInputConfig.h"
+#include "EnhancedInputSubsystems.h"
+#include "EnhancedInputComponent.h"
 
 APGPlayerCharacter::APGPlayerCharacter()
 {
-    // 네트워크 복제 활성화
-    bReplicates = true;
-    
     // 카메라 붐 생성
     CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
     CameraBoom->SetupAttachment(RootComponent);
     CameraBoom->TargetArmLength = 300.0f;
     CameraBoom->bUsePawnControlRotation = true;
-
+    
     // 팔로우 카메라 생성
     FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
     FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
     FollowCamera->bUsePawnControlRotation = false;
-
-    // 카메라 시스템 생성
-    CameraSystem = CreateDefaultSubobject<UPGCameraSystem>(TEXT("CameraSystem"));
-
-    // 캐릭터 무브먼트 설정
-    GetCharacterMovement()->bOrientRotationToMovement = true;
-    GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f);
-    GetCharacterMovement()->JumpZVelocity = 700.f;
-    GetCharacterMovement()->AirControl = 0.35f;
-    GetCharacterMovement()->MaxWalkSpeed = 500.f;
-
-    // 플레이어 속성 초기화
-    PlayerType = EPGPlayerType::RemotePlayer; // 기본값으로 리모트 플레이어 설정
-    PlayerName = "Player";
-    PlayerLevel = 1;
-    Experience = 0;
-    ExperienceForNextLevel = 1000;
     
-    // RPG 능력치 초기화
-    Strength = 10;
-    Dexterity = 10;
-    Intelligence = 10;
-    Constitution = 10;
+    // 캐릭터 기본 회전 설정
+    bUseControllerRotationPitch = false;
+    bUseControllerRotationYaw = true;
+    bUseControllerRotationRoll = false;
 }
 
 void APGPlayerCharacter::BeginPlay()
 {
     Super::BeginPlay();
-
-    // 로컬 플레이어 체크 및 설정
-    APlayerController* PC = Cast<APlayerController>(GetController());
-    if (PC && PC->IsLocalPlayerController())
+    
+    // 로컬 플레이어인 경우에만 입력 매핑 컨텍스트 추가
+    if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
     {
-        PlayerType = EPGPlayerType::LocalPlayer;
-
-        // EnhancedInput 매핑 컨텍스트 설정
-        if (ULocalPlayer* LocalPlayer = PC->GetLocalPlayer())
+        if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
         {
-            if (UEnhancedInputLocalPlayerSubsystem* Subsystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
+            if (DefaultMappingContext)
             {
-                if (DefaultMappingContext)
-                {
-                    // UE 5.4 API 호환성
-                    Subsystem->AddMappingContext(DefaultMappingContext, 0);
-                }
+                Subsystem->AddMappingContext(DefaultMappingContext, 0);
             }
         }
     }
-    
-    // 카메라 시스템 초기화
-    if (CameraSystem)
-    {
-        CameraSystem->Initialize(CameraBoom, FollowCamera);
-    }
-}
-
-void APGPlayerCharacter::Tick(float DeltaTime)
-{
-    Super::Tick(DeltaTime);
-    
-    // 플레이어 틱 로직
 }
 
 void APGPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
     Super::SetupPlayerInputComponent(PlayerInputComponent);
-
-    // EnhancedInput 설정
-    if (UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent))
+    
+    // Cast to enhanced input component
+    PGInputComponent = Cast<UPGEnhancedInputComponent>(PlayerInputComponent);
+    
+    if (PGInputComponent && InputConfig)
     {
-        // 기존 기본 입력 매핑 설정
-        // (구체적인 구현은 생략)
-        
-        // 카메라 관련 입력 바인딩
-        if (CameraZoomAction)
+        // Movement
+        if (InputConfig->MoveAction)
         {
-            EnhancedInputComponent->BindAction(CameraZoomAction, ETriggerEvent::Triggered, this, &APGPlayerCharacter::OnCameraZoom);
+            PGInputComponent->BindActionSafe(InputConfig->MoveAction, ETriggerEvent::Triggered, this, &APGPlayerCharacter::Move);
         }
         
-        if (CameraSwitchAction)
+        if (InputConfig->LookAction)
         {
-            EnhancedInputComponent->BindAction(CameraSwitchAction, ETriggerEvent::Triggered, this, &APGPlayerCharacter::OnCameraSwitch);
+            PGInputComponent->BindActionSafe(InputConfig->LookAction, ETriggerEvent::Triggered, this, &APGPlayerCharacter::Look);
         }
         
-        if (FreeCameraMoveAction)
+        if (InputConfig->JumpAction)
         {
-            EnhancedInputComponent->BindAction(FreeCameraMoveAction, ETriggerEvent::Triggered, this, &APGPlayerCharacter::OnFreeCameraMove);
+            PGInputComponent->BindActionSafe(InputConfig->JumpAction, ETriggerEvent::Triggered, this, &APGPlayerCharacter::JumpAction);
         }
         
-        if (FreeCameraRotateAction)
+        if (InputConfig->SprintAction)
         {
-            EnhancedInputComponent->BindAction(FreeCameraRotateAction, ETriggerEvent::Triggered, this, &APGPlayerCharacter::OnFreeCameraRotate);
+            PGInputComponent->BindActionSafe(InputConfig->SprintAction, ETriggerEvent::Triggered, this, &APGPlayerCharacter::Sprint);
+        }
+        
+        // Combat
+        if (InputConfig->PrimaryAttackAction)
+        {
+            PGInputComponent->BindActionSafe(InputConfig->PrimaryAttackAction, ETriggerEvent::Triggered, this, &APGPlayerCharacter::PrimaryAttack);
+        }
+        
+        if (InputConfig->SecondaryAttackAction)
+        {
+            PGInputComponent->BindActionSafe(InputConfig->SecondaryAttackAction, ETriggerEvent::Triggered, this, &APGPlayerCharacter::SecondaryAttack);
+        }
+        
+        if (InputConfig->TargetAction)
+        {
+            PGInputComponent->BindActionSafe(InputConfig->TargetAction, ETriggerEvent::Triggered, this, &APGPlayerCharacter::SelectTarget);
+        }
+        
+        if (InputConfig->ClearTargetAction)
+        {
+            PGInputComponent->BindActionSafe(InputConfig->ClearTargetAction, ETriggerEvent::Triggered, this, &APGPlayerCharacter::ClearTarget);
+        }
+        
+        // Abilities
+        if (InputConfig->Ability1Action)
+        {
+            PGInputComponent->BindActionSafe(InputConfig->Ability1Action, ETriggerEvent::Triggered, this, &APGPlayerCharacter::UseAbility1);
+        }
+        
+        if (InputConfig->Ability2Action)
+        {
+            PGInputComponent->BindActionSafe(InputConfig->Ability2Action, ETriggerEvent::Triggered, this, &APGPlayerCharacter::UseAbility2);
+        }
+        
+        if (InputConfig->Ability3Action)
+        {
+            PGInputComponent->BindActionSafe(InputConfig->Ability3Action, ETriggerEvent::Triggered, this, &APGPlayerCharacter::UseAbility3);
+        }
+        
+        if (InputConfig->Ability4Action)
+        {
+            PGInputComponent->BindActionSafe(InputConfig->Ability4Action, ETriggerEvent::Triggered, this, &APGPlayerCharacter::UseAbility4);
+        }
+        
+        // Interaction
+        if (InputConfig->InteractAction)
+        {
+            PGInputComponent->BindActionSafe(InputConfig->InteractAction, ETriggerEvent::Triggered, this, &APGPlayerCharacter::InteractInput);
         }
     }
 }
 
-void APGPlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+void APGPlayerCharacter::SetCameraDistance(float Distance)
 {
-    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+    if (CameraBoom)
+    {
+        CameraBoom->TargetArmLength = Distance;
+    }
+}
 
-    // 네트워크 복제 속성 설정
-    DOREPLIFETIME(APGPlayerCharacter, PlayerType);
-    DOREPLIFETIME(APGPlayerCharacter, PlayerName);
-    DOREPLIFETIME(APGPlayerCharacter, PlayerLevel);
-    DOREPLIFETIME(APGPlayerCharacter, Experience);
-    DOREPLIFETIME(APGPlayerCharacter, ExperienceForNextLevel);
-    DOREPLIFETIME(APGPlayerCharacter, Strength);
-    DOREPLIFETIME(APGPlayerCharacter, Dexterity);
-    DOREPLIFETIME(APGPlayerCharacter, Intelligence);
-    DOREPLIFETIME(APGPlayerCharacter, Constitution);
+void APGPlayerCharacter::SelectTarget()
+{
+    if (CombatComponent)
+    {
+        CombatComponent->SelectTarget();
+    }
+}
+
+void APGPlayerCharacter::ClearTarget()
+{
+    if (CombatComponent)
+    {
+        CombatComponent->ClearTarget();
+    }
 }
 
 void APGPlayerCharacter::Interact(APGBaseCharacter* Interactor)
 {
+    // 플레이어가 상호작용을 받았을 때의 처리
     Super::Interact(Interactor);
     
-    // 다른 플레이어와의 상호작용 로직
+    // 플레이어 특화된 상호작용 처리
+    UE_LOG(LogTemp, Log, TEXT("Player Character Interacted"));
 }
 
-void APGPlayerCharacter::AddExperience(int32 Amount)
+void APGPlayerCharacter::InteractInput(const FInputActionValue& Value)
 {
-    Experience += Amount;
+    // 플레이어가 상호작용 키를 눌렀을 때 근처 오브젝트와 상호작용
+    UE_LOG(LogTemp, Log, TEXT("Player pressed Interact button"));
     
-    // 경험치 획득 이벤트 발생
-    OnExperienceGained.Broadcast(Amount);
+    // 여기서 주변 상호작용 가능한 오브젝트를 탐색하고 상호작용을 시작할 수 있음
+    // 예: 가장 가까운 NPC 찾기, 아이템 줍기, 문 열기 등
+}
+
+void APGPlayerCharacter::Move(const FInputActionValue& Value)
+{
+    // Movement input
+    const FVector2D MovementVector = Value.Get<FVector2D>();
     
-    CheckLevelUp();
-}
-
-void APGPlayerCharacter::CheckLevelUp()
-{
-    if (Experience >= ExperienceForNextLevel)
+    if (Controller != nullptr)
     {
-        Experience -= ExperienceForNextLevel;
-        LevelUp();
-        ExperienceForNextLevel = static_cast<int32>(ExperienceForNextLevel * 1.5f); // 다음 레벨업 경험치 증가
-    }
-}
-
-void APGPlayerCharacter::AttemptInteraction()
-{
-    // 로컬 플레이어인 경우에만 상호작용 시도
-    if (IsLocalPlayer())
-    {
-        APGBaseCharacter* Target = FindInteractableTarget();
-        if (Target && Target->CanBeInteractedWith())
+        // Forward/Backward movement
+        if (MovementVector.Y != 0.0f)
         {
-            // 로컬에서 처리 후 서버로 전송
-            ServerInteract();
-            
-            // 타겟과 상호작용
-            Target->Interact(this);
+            const FRotator Rotation = Controller->GetControlRotation();
+            const FRotator YawRotation(0, Rotation.Yaw, 0);
+            const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+            AddMovementInput(Direction, MovementVector.Y);
+        }
+        
+        // Right/Left movement
+        if (MovementVector.X != 0.0f)
+        {
+            const FRotator Rotation = Controller->GetControlRotation();
+            const FRotator YawRotation(0, Rotation.Yaw, 0);
+            const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+            AddMovementInput(Direction, MovementVector.X);
         }
     }
 }
 
-bool APGPlayerCharacter::IsLocalPlayer() const
+void APGPlayerCharacter::Look(const FInputActionValue& Value)
 {
-    return PlayerType == EPGPlayerType::LocalPlayer;
-}
-
-void APGPlayerCharacter::SyncWithRemotePlayer()
-{
-    // 리모트 플레이어 동기화 로직
-}
-
-bool APGPlayerCharacter::ServerMoveCharacter_Validate(const FVector& Direction)
-{
-    return true; // 간단한 검증
-}
-
-void APGPlayerCharacter::ServerMoveCharacter_Implementation(const FVector& Direction)
-{
-    // 서버에서의 이동 처리 로직
-}
-
-bool APGPlayerCharacter::ServerInteract_Validate()
-{
-    return true; // 간단한 검증
-}
-
-void APGPlayerCharacter::ServerInteract_Implementation()
-{
-    // 서버에서의 상호작용 처리 로직
-    APGBaseCharacter* Target = FindInteractableTarget();
-    if (Target && Target->CanBeInteractedWith())
+    // Look input
+    const FVector2D LookAxisVector = Value.Get<FVector2D>();
+    
+    if (Controller != nullptr)
     {
-        Target->Interact(this);
-    }
-}
-
-APGBaseCharacter* APGPlayerCharacter::FindInteractableTarget()
-{
-    // 플레이어 주변의 상호작용 가능한 대상 찾기
-    // 여기서는 간단한 구조만 정의
-    
-    // 실제 구현에서는 트레이스나 오버랩을 통해 가장 가까운 상호작용 가능 대상을 찾음
-    
-    return nullptr; // 구체적인 구현은 제외
-}
-
-// 카메라 관련 입력 처리 함수
-void APGPlayerCharacter::OnCameraZoom(const FInputActionValue& Value)
-{
-    if (!CameraSystem || !IsLocalPlayer())
-        return;
-    
-    float ZoomValue = Value.Get<float>();
-    CameraSystem->ProcessCameraZoom(ZoomValue);
-}
-
-void APGPlayerCharacter::OnCameraSwitch(const FInputActionValue& Value)
-{
-    if (!CameraSystem || !IsLocalPlayer())
-        return;
-    
-    // 액션 트리거 시 다음 카메라 모드로 전환
-    CameraSystem->CycleToNextCameraMode();
-}
-
-void APGPlayerCharacter::OnFreeCameraMove(const FInputActionValue& Value)
-{
-    if (!CameraSystem || !IsLocalPlayer())
-        return;
-    
-    // 카메라 시스템이 자유 시점 모드인 경우에만 처리
-    if (CameraSystem->GetCurrentCameraMode() == EPGCameraMode::FreeCamera)
-    {
-        FVector Direction = Value.Get<FVector>();
-        CameraSystem->ProcessFreeCameraMovement(Direction);
-    }
-}
-
-void APGPlayerCharacter::OnFreeCameraRotate(const FInputActionValue& Value)
-{
-    if (!CameraSystem || !IsLocalPlayer())
-        return;
-    
-    // 카메라 시스템이 자유 시점 모드인 경우에만 처리
-    if (CameraSystem->GetCurrentCameraMode() == EPGCameraMode::FreeCamera)
-    {
-        FRotator Rotation;
-        Rotation.Pitch = Value.Get<FVector2D>().Y;
-        Rotation.Yaw = Value.Get<FVector2D>().X;
-        Rotation.Roll = 0.0f;
+        // Up/Down looking
+        AddControllerPitchInput(LookAxisVector.Y);
         
-        CameraSystem->ProcessFreeCameraRotation(Rotation);
+        // Left/Right looking
+        AddControllerYawInput(LookAxisVector.X);
+    }
+}
+
+void APGPlayerCharacter::JumpAction(const FInputActionValue& Value)
+{
+    ACharacter::Jump();
+}
+
+void APGPlayerCharacter::Sprint(const FInputActionValue& Value)
+{
+    // 사용자 정의 움직임 컴포넌트를 통한 달리기 구현
+    if (UCharacterMovementComponent* MovementComponent = GetCharacterMovement())
+    {
+        // 여기서는 기본 언리얼 움직임 컴포넌트를 사용
+        // 실제 구현에서는 UPGCharacterMovementComponent를 사용할 수 있음
+        const float SprintSpeedMultiplier = 1.5f;
+        MovementComponent->MaxWalkSpeed = 600.0f * SprintSpeedMultiplier;
+    }
+}
+
+void APGPlayerCharacter::PrimaryAttack(const FInputActionValue& Value)
+{
+    if (CombatComponent)
+    {
+        CombatComponent->PrimaryAttack();
+    }
+}
+
+void APGPlayerCharacter::SecondaryAttack(const FInputActionValue& Value)
+{
+    if (CombatComponent)
+    {
+        CombatComponent->SecondaryAttack();
+    }
+}
+
+void APGPlayerCharacter::UseAbility1(const FInputActionValue& Value)
+{
+    if (AbilityComponent)
+    {
+        // 실제 구현에서는 특정 능력 ID를 사용
+        AbilityComponent->ActivateAbility(FName("Ability1"));
+    }
+}
+
+void APGPlayerCharacter::UseAbility2(const FInputActionValue& Value)
+{
+    if (AbilityComponent)
+    {
+        AbilityComponent->ActivateAbility(FName("Ability2"));
+    }
+}
+
+void APGPlayerCharacter::UseAbility3(const FInputActionValue& Value)
+{
+    if (AbilityComponent)
+    {
+        AbilityComponent->ActivateAbility(FName("Ability3"));
+    }
+}
+
+void APGPlayerCharacter::UseAbility4(const FInputActionValue& Value)
+{
+    if (AbilityComponent)
+    {
+        AbilityComponent->ActivateAbility(FName("Ability4"));
     }
 }

@@ -1,89 +1,103 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
-
 #include "PGBaseCharacter.h"
-#include "../Items/PGInventoryComponent.h"
-#include "GameFramework/CharacterMovementComponent.h"
+#include "Net/UnrealNetwork.h"
+#include "../Combat/PGCombatComponent.h"
+#include "../Abilities/PGAbilityComponent.h"
 
 APGBaseCharacter::APGBaseCharacter()
 {
+    // 기본값 설정
     PrimaryActorTick.bCanEverTick = true;
-
-    // 기본 속성 초기화
+    
+    // 초기 상태 설정
+    CurrentState = EPGCharacterState::Idle;
+    
+    // 기본 체력 설정
     MaxHealth = 100.0f;
-    CurrentHealth = MaxHealth;
-    MaxMana = 100.0f;
-    CurrentMana = MaxMana;
-    Level = 1;
-    MovementSpeed = 600.0f;
-
-    // 인벤토리 컴포넌트 생성
-    InventoryComponent = CreateDefaultSubobject<UPGInventoryComponent>(TEXT("InventoryComponent"));
+    Health = MaxHealth;
+    
+    // 컴포넌트 생성
+    CombatComponent = CreateDefaultSubobject<UPGCombatComponent>(TEXT("CombatComponent"));
+    AbilityComponent = CreateDefaultSubobject<UPGAbilityComponent>(TEXT("AbilityComponent"));
 }
 
-void APGBaseCharacter::BeginPlay()
+void APGBaseCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
-    Super::BeginPlay();
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
     
-    // 이동 속도 설정
-    GetCharacterMovement()->MaxWalkSpeed = MovementSpeed;
+    // 복제할 속성 등록
+    DOREPLIFETIME(APGBaseCharacter, CurrentState);
+    DOREPLIFETIME(APGBaseCharacter, Health);
 }
 
-void APGBaseCharacter::Tick(float DeltaTime)
+EPGCharacterState APGBaseCharacter::GetCharacterState() const
 {
-    Super::Tick(DeltaTime);
+    return CurrentState;
 }
 
-void APGBaseCharacter::ApplyDamageToCharacter(float DamageAmount, AActor* DamageCauser)
+void APGBaseCharacter::SetCharacterState(EPGCharacterState NewState)
 {
-    if (!IsAlive()) return;
-
-    CurrentHealth = FMath::Max(CurrentHealth - DamageAmount, 0.0f);
-    
-    // 데미지 이벤트 발생
-    OnCharacterDamaged.Broadcast(this, DamageAmount);
-    
-    if (CurrentHealth <= 0.0f)
+    if (GetLocalRole() == ROLE_Authority)
     {
-        Die();
+        CurrentState = NewState;
     }
 }
 
-void APGBaseCharacter::Die()
+float APGBaseCharacter::GetHealth() const
 {
-    // 사망 이벤트 발생
-    OnCharacterDied.Broadcast(this);
-    
-    // 구체적인 사망 로직은 자식 클래스에서 구현
+    return Health;
 }
 
-void APGBaseCharacter::Heal(float HealAmount)
+float APGBaseCharacter::GetMaxHealth() const
 {
-    if (!IsAlive()) return;
-    
-    CurrentHealth = FMath::Min(CurrentHealth + HealAmount, MaxHealth);
+    return MaxHealth;
 }
 
-bool APGBaseCharacter::IsAlive() const
+void APGBaseCharacter::SetHealth(float NewHealth)
 {
-    return CurrentHealth > 0.0f;
+    if (GetLocalRole() == ROLE_Authority)
+    {
+        Health = FMath::Clamp(NewHealth, 0.0f, MaxHealth);
+        
+        // 체력이 0이 되면 사망 상태로 전환
+        if (Health <= 0.0f && CurrentState != EPGCharacterState::Dead)
+        {
+            SetCharacterState(EPGCharacterState::Dead);
+        }
+    }
 }
 
-void APGBaseCharacter::LevelUp()
+float APGBaseCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, 
+                                   AController* EventInstigator, AActor* DamageCauser)
 {
-    Level++;
+    float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
     
-    // 레벨업 이벤트 발생
-    OnCharacterLevelUp.Broadcast(this);
+    if (ActualDamage > 0.0f && GetLocalRole() == ROLE_Authority)
+    {
+        SetHealth(GetHealth() - ActualDamage);
+    }
     
-    // 스탯 증가 등의 로직은 자식 클래스에서 구현
+    return ActualDamage;
 }
 
 void APGBaseCharacter::Interact(APGBaseCharacter* Interactor)
 {
-    // 기본 상호작용 로직 - 자식 클래스에서 오버라이드
+    // 기본 상호작용 구현, 자식 클래스에서 재정의 가능
 }
 
 bool APGBaseCharacter::CanBeInteractedWith() const
 {
-    return IsAlive(); // 기본적으로 살아있는 캐릭터만 상호작용 가능
+    // 기본적으로 상호작용 가능
+    return true;
+}
+
+void APGBaseCharacter::OnRep_CharacterState()
+{
+    // 캐릭터 상태가 변경되었을 때 클라이언트에서 실행되는 로직
+    // 예: 애니메이션 재생, 파티클 효과 등
+    
+    if (CurrentState == EPGCharacterState::Dead)
+    {
+        // 사망 처리
+        // 예: 레그돌 활성화, 충돌 비활성화 등
+    }
 }

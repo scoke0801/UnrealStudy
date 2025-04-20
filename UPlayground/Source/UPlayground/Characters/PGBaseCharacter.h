@@ -1,84 +1,81 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
-
 #pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "PGBaseCharacter.generated.h"
 
-UCLASS(Abstract)
+// 캐릭터 상태 enum
+UENUM(BlueprintType)
+enum class EPGCharacterState : uint8
+{
+    Idle,
+    Moving,
+    Attacking,
+    Casting,
+    Stunned,
+    Dead
+};
+    
+/**
+ * 모든 캐릭터의 기본 클래스
+ */
+UCLASS()
 class UPLAYGROUND_API APGBaseCharacter : public ACharacter
 {
     GENERATED_BODY()
-
+    
 public:
     APGBaseCharacter();
-
-    virtual void BeginPlay() override;
-    virtual void Tick(float DeltaTime) override;
-
-protected:
-    // 캐릭터 기본 속성
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Character Stats")
-    float MaxHealth;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Character Stats")
-    float CurrentHealth;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Character Stats")
-    float MaxMana;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Character Stats")
-    float CurrentMana;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Character Stats")
-    int32 Level;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Character Stats")
-    float MovementSpeed;
-
-    // 인벤토리 컴포넌트 참조
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-    class UPGInventoryComponent* InventoryComponent;
-
-    // 기본 캐릭터 메서드
+    
+    // 상태 관련 함수
     UFUNCTION(BlueprintCallable, Category = "Character")
-    virtual void ApplyDamageToCharacter(float DamageAmount, AActor* DamageCauser);
-
+    EPGCharacterState GetCharacterState() const;
+    
     UFUNCTION(BlueprintCallable, Category = "Character")
-    virtual void Die();
-
+    void SetCharacterState(EPGCharacterState NewState);
+    
+    // 체력 관리
     UFUNCTION(BlueprintCallable, Category = "Character")
-    virtual void Heal(float HealAmount);
-
+    float GetHealth() const;
+    
     UFUNCTION(BlueprintCallable, Category = "Character")
-    virtual bool IsAlive() const;
-
+    float GetMaxHealth() const;
+    
     UFUNCTION(BlueprintCallable, Category = "Character")
-    virtual void LevelUp();
-
-public:
-    // 상호작용 시스템 - 외부에서 접근 가능하도록 public으로 변경
-    UFUNCTION(BlueprintCallable, Category = "Interaction")
+    void SetHealth(float NewHealth);
+    
+    // 데미지 처리
+    UFUNCTION(BlueprintCallable, Category = "Character")
+    virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, 
+                            AController* EventInstigator, AActor* DamageCauser) override;
+    
+    // 상호작용 메서드
+    UFUNCTION(BlueprintCallable, Category = "Character|Interaction")
     virtual void Interact(APGBaseCharacter* Interactor);
-
-    UFUNCTION(BlueprintCallable, Category = "Interaction")
+    
+    UFUNCTION(BlueprintCallable, Category = "Character|Interaction")
     virtual bool CanBeInteractedWith() const;
-
+    
 protected:
-
-    // 델리게이트 선언
-    DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnCharacterDamaged, APGBaseCharacter*, DamagedCharacter, float, DamageAmount);
-    DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCharacterDied, APGBaseCharacter*, DeadCharacter);
-    DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCharacterLevelUp, APGBaseCharacter*, Character);
-
-    // 이벤트 델리게이트
-    UPROPERTY(BlueprintAssignable, Category = "Character Events")
-    FOnCharacterDamaged OnCharacterDamaged;
-
-    UPROPERTY(BlueprintAssignable, Category = "Character Events")
-    FOnCharacterDied OnCharacterDied;
-
-    UPROPERTY(BlueprintAssignable, Category = "Character Events")
-    FOnCharacterLevelUp OnCharacterLevelUp;
+    // 캐릭터 상태
+    UPROPERTY(ReplicatedUsing = OnRep_CharacterState, BlueprintReadOnly, Category = "Character")
+    EPGCharacterState CurrentState;
+    
+    // 체력 속성
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated, Category = "Character|Health")
+    float Health;
+    
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character|Health")
+    float MaxHealth;
+    
+    // 상태 복제 함수
+    UFUNCTION()
+    void OnRep_CharacterState();
+    
+    // 컴포넌트 레퍼런스
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Character|Components")
+    class UPGCombatComponent* CombatComponent;
+    
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Character|Components")
+    class UPGAbilityComponent* AbilityComponent;
 };
