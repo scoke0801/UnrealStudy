@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "../Equipment/PGEquipmentTypes.h"
 #include "PGBaseCharacter.generated.h"
 
 // 캐릭터 상태 enum
@@ -56,6 +57,13 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Character|Interaction")
     virtual bool CanBeInteractedWith() const;
     
+    // 장비 관련 함수
+    UFUNCTION(BlueprintCallable, Category = "Character|Equipment")
+    bool EquipItemFromInventory(class UPGEquipmentItem* Item);
+    
+    UFUNCTION(BlueprintCallable, Category = "Character|Equipment")
+    bool UnequipItemToInventory(EPGEquipmentSlot Slot);
+    
 protected:
     // 캐릭터 상태
     UPROPERTY(ReplicatedUsing = OnRep_CharacterState, BlueprintReadOnly, Category = "Character")
@@ -78,4 +86,16 @@ protected:
     
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Character|Components")
     class UPGAbilityComponent* AbilityComponent;
+    
+    // 인벤토리 컴포넌트
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Character|Components")
+    class UPGInventoryComponent* InventoryComponent;
+    
+    // 장비 컴포넌트
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Character|Components")
+    class UPGEquipmentComponent* EquipmentComponent;
+    
+    // 장비 시각화 컴포넌트
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Character|Components")
+    class UPGEquipmentVisualizerComponent* EquipmentVisualizerComponent;
 };

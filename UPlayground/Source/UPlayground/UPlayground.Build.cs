@@ -10,6 +10,12 @@ public class UPlayground : ModuleRules
         
         // C++ 20 사용 설정
         CppStandard = CppStandardVersion.Cpp20;
+		
+		// 모듈 헤더 공개 설정
+		PublicIncludePaths.AddRange(new string[] {
+			"UPlayground",
+			"UPlayground/Equipment"
+		});
 	
 		PublicDependencyModuleNames.AddRange(new string[] { 
 			"Core", 

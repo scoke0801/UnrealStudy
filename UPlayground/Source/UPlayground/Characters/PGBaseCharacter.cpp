@@ -2,6 +2,10 @@
 #include "Net/UnrealNetwork.h"
 #include "../Combat/PGCombatComponent.h"
 #include "../Abilities/PGAbilityComponent.h"
+#include "../Items/PGInventoryComponent.h"
+#include "../Equipment/PGEquipmentComponent.h"
+#include "../Equipment/PGEquipmentVisualizerComponent.h"
+#include "../Equipment/PGEquipmentItem.h"
 
 APGBaseCharacter::APGBaseCharacter()
 {
@@ -18,6 +22,9 @@ APGBaseCharacter::APGBaseCharacter()
     // 컴포넌트 생성
     CombatComponent = CreateDefaultSubobject<UPGCombatComponent>(TEXT("CombatComponent"));
     AbilityComponent = CreateDefaultSubobject<UPGAbilityComponent>(TEXT("AbilityComponent"));
+    InventoryComponent = CreateDefaultSubobject<UPGInventoryComponent>(TEXT("InventoryComponent"));
+    EquipmentComponent = CreateDefaultSubobject<UPGEquipmentComponent>(TEXT("EquipmentComponent"));
+    EquipmentVisualizerComponent = CreateDefaultSubobject<UPGEquipmentVisualizerComponent>(TEXT("EquipmentVisualizerComponent"));
 }
 
 void APGBaseCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -100,4 +107,67 @@ void APGBaseCharacter::OnRep_CharacterState()
         // 사망 처리
         // 예: 레그돌 활성화, 충돌 비활성화 등
     }
+}
+
+bool APGBaseCharacter::EquipItemFromInventory(UPGEquipmentItem* Item)
+{
+    if (!Item || !InventoryComponent || !EquipmentComponent)
+    {
+        return false;
+    }
+
+    // 아이템이 장비 타입인지 확인
+    if (Item->GetItemType() != EPGItemType::Equipment)
+    {
+        return false;
+    }
+
+    // 인벤토리에 해당 아이템이 있는지 확인
+    TArray<int32> SlotIndices;
+    if (!InventoryComponent->FindItemsByID(Item->GetItemID(), SlotIndices) || SlotIndices.Num() == 0)
+    {
+        return false;
+    }
+
+    // 장비 장착
+    if (EquipmentComponent->EquipItem(Item))
+    {
+        // 인벤토리에서 아이템 제거
+        InventoryComponent->RemoveItem(SlotIndices[0], 1);
+        return true;
+    }
+
+    return false;
+}
+
+bool APGBaseCharacter::UnequipItemToInventory(EPGEquipmentSlot Slot)
+{
+    if (!InventoryComponent || !EquipmentComponent)
+    {
+        return false;
+    }
+
+    // 해당 슬롯의 장비 가져오기
+    UPGEquipmentItem* Item = EquipmentComponent->GetEquippedItem(Slot);
+    if (!Item)
+    {
+        return false;
+    }
+
+    // 인벤토리에 공간이 있는지 확인
+    int32 OutSlotIndex = -1;
+    if (!InventoryComponent->AddItem(Item, OutSlotIndex, 1))
+    {
+        return false;
+    }
+
+    // 장비 해제
+    if (EquipmentComponent->UnequipItem(Slot))
+    {
+        return true;
+    }
+
+    // 장비 해제에 실패했다면 인벤토리에서도 제거
+    InventoryComponent->RemoveItem(OutSlotIndex, 1);
+    return false;
 }
