@@ -3,6 +3,7 @@
 #include "PGEquipmentVisualizerComponent.h"
 #include "GameFramework/Character.h"
 #include "PGEquipmentComponent.h"
+#include "Materials/MaterialInstanceDynamic.h"
 
 UPGEquipmentVisualizerComponent::UPGEquipmentVisualizerComponent()
 {
@@ -37,6 +38,9 @@ void UPGEquipmentVisualizerComponent::ApplyEquipmentVisual(EPGEquipmentSlot Slot
     {
         return;
     }
+
+    // 아이템 레퍼런스 저장
+    EquippedItemRefs.Add(Slot, Item);
 
     // 아이템 타입에 따라 적절한 시각화 방법 선택
     if (!Item->StaticEquipmentMesh.IsNull())
@@ -74,6 +78,12 @@ void UPGEquipmentVisualizerComponent::RemoveEquipmentVisual(EPGEquipmentSlot Slo
         }
         AttachedSkeletalMeshes.Remove(Slot);
     }
+    
+    // 아이템 레퍼런스 제거
+    if (EquippedItemRefs.Contains(Slot))
+    {
+        EquippedItemRefs.Remove(Slot);
+    }
 }
 
 void UPGEquipmentVisualizerComponent::ApplyAllEquipmentVisuals(const TMap<EPGEquipmentSlot, UPGEquipmentItem*>& EquippedItems)
@@ -93,6 +103,102 @@ void UPGEquipmentVisualizerComponent::ApplyAllEquipmentVisuals(const TMap<EPGEqu
     for (const auto& ItemPair : EquippedItems)
     {
         ApplyEquipmentVisual(ItemPair.Key, ItemPair.Value);
+    }
+}
+
+bool UPGEquipmentVisualizerComponent::ApplyDyeToEquipment(EPGEquipmentSlot Slot, EPGDyeChannel Channel, const FPGDyeInfo& DyeInfo)
+{
+    // 해당 슬롯에 장비가 있는지 확인
+    if (!EquippedItemRefs.Contains(Slot))
+    {
+        return false;
+    }
+    
+    // 장비 아이템 가져오기
+    UPGEquipmentItem* EquipmentItem = EquippedItemRefs[Slot];
+    if (!EquipmentItem || !EquipmentItem->IsDyeable())
+    {
+        return false;
+    }
+    
+    // 염색 적용
+    bool bSuccess = EquipmentItem->ApplyDye(Channel, DyeInfo);
+    if (bSuccess)
+    {
+        // 시각적으로 염색 업데이트
+        UpdateDyeVisual(Slot, Channel);
+        
+        // 염색 변경 이벤트 발생
+        OnEquipmentDyeChanged.Broadcast(Slot, Channel, DyeInfo);
+    }
+    
+    return bSuccess;
+}
+
+void UPGEquipmentVisualizerComponent::UpdateDyeVisual(EPGEquipmentSlot Slot, EPGDyeChannel Channel)
+{
+    // 해당 슬롯에 장비가 있는지 확인
+    if (!EquippedItemRefs.Contains(Slot))
+    {
+        return;
+    }
+    
+    UPGEquipmentItem* Item = EquippedItemRefs[Slot];
+    if (!Item)
+    {
+        return;
+    }
+    
+    // 메시 컴포넌트 찾기
+    UMeshComponent* MeshComponent = nullptr;
+    
+    if (AttachedSkeletalMeshes.Contains(Slot))
+    {
+        MeshComponent = AttachedSkeletalMeshes[Slot];
+    }
+    else if (AttachedStaticMeshes.Contains(Slot))
+    {
+        MeshComponent = AttachedStaticMeshes[Slot];
+    }
+    
+    if (!MeshComponent)
+    {
+        return;
+    }
+    
+    // 특정 채널 염색 적용
+    ApplyDyeChannel(MeshComponent, Item, Channel);
+}
+
+void UPGEquipmentVisualizerComponent::ResetAllDyes()
+{
+    // 모든 장비의 염색 초기화
+    for (auto& ItemPair : EquippedItemRefs)
+    {
+        UPGEquipmentItem* Item = ItemPair.Value;
+        if (Item && Item->IsDyeable())
+        {
+            // 모든 염색 제거
+            Item->ClearAllDyes();
+            
+            // 메시 컴포넌트 찾기
+            UMeshComponent* MeshComponent = nullptr;
+            
+            if (AttachedSkeletalMeshes.Contains(ItemPair.Key))
+            {
+                MeshComponent = AttachedSkeletalMeshes[ItemPair.Key];
+            }
+            else if (AttachedStaticMeshes.Contains(ItemPair.Key))
+            {
+                MeshComponent = AttachedStaticMeshes[ItemPair.Key];
+            }
+            
+            if (MeshComponent)
+            {
+                // 염색 재적용
+                ApplyDyesToMeshComponent(MeshComponent, Item);
+            }
+        }
     }
 }
 
@@ -146,6 +252,12 @@ void UPGEquipmentVisualizerComponent::AttachStaticMesh(EPGEquipmentSlot Slot, UP
 
     // 머티리얼 적용
     ApplyMaterials(MeshComp, Item->EquipmentMaterials);
+    
+    // 염색 적용
+    if (Item->IsDyeable())
+    {
+        ApplyDyesToMeshComponent(MeshComp, Item);
+    }
 
     // 컴포넌트 등록
     AttachedStaticMeshes.Add(Slot, MeshComp);
@@ -173,6 +285,12 @@ void UPGEquipmentVisualizerComponent::AttachSkeletalMesh(EPGEquipmentSlot Slot, 
 
     // 머티리얼 적용
     ApplyMaterials(MeshComp, Item->EquipmentMaterials);
+    
+    // 염색 적용
+    if (Item->IsDyeable())
+    {
+        ApplyDyesToMeshComponent(MeshComp, Item);
+    }
 
     // 컴포넌트 등록
     AttachedSkeletalMeshes.Add(Slot, MeshComp);
@@ -241,7 +359,108 @@ void UPGEquipmentVisualizerComponent::ApplyMaterials(UMeshComponent* MeshCompone
             UMaterialInterface* Material = Materials[i].LoadSynchronous();
             if (Material)
             {
-                MeshComponent->SetMaterial(i, Material);
+                // 동적 머티리얼 인스턴스 생성 (염색을 위해)
+                UMaterialInstanceDynamic* DynamicMaterial = UMaterialInstanceDynamic::Create(Material, MeshComponent);
+                if (DynamicMaterial)
+                {
+                    MeshComponent->SetMaterial(i, DynamicMaterial);
+                }
+                else
+                {
+                    MeshComponent->SetMaterial(i, Material);
+                }
+            }
+        }
+    }
+}
+
+void UPGEquipmentVisualizerComponent::ApplyDyesToMeshComponent(UMeshComponent* MeshComponent, UPGEquipmentItem* Item)
+{
+    if (!MeshComponent || !Item || !Item->IsDyeable())
+    {
+        return;
+    }
+    
+    // 각 염색 채널에 대해 염색 적용
+    for (const EPGDyeChannel& Channel : Item->AvailableDyeChannels)
+    {
+        ApplyDyeChannel(MeshComponent, Item, Channel);
+    }
+}
+
+void UPGEquipmentVisualizerComponent::ApplyDyeChannel(UMeshComponent* MeshComponent, UPGEquipmentItem* Item, EPGDyeChannel Channel)
+{
+    if (!MeshComponent || !Item)
+    {
+        return;
+    }
+    
+    // 해당 채널의 염색 정보 가져오기
+    FPGDyeInfo DyeInfo = Item->GetDyeInfo(Channel);
+    
+    // 파라미터 이름 가져오기
+    FName ColorParamName = NAME_None;
+    FName MetallicParamName = NAME_None;
+    FName RoughnessParamName = NAME_None;
+    
+    if (Item->DyeParameterNames.Contains(Channel))
+    {
+        ColorParamName = Item->DyeParameterNames[Channel];
+    }
+    
+    if (Item->MetallicParameterNames.Contains(Channel))
+    {
+        MetallicParamName = Item->MetallicParameterNames[Channel];
+    }
+    
+    if (Item->RoughnessParameterNames.Contains(Channel))
+    {
+        RoughnessParamName = Item->RoughnessParameterNames[Channel];
+    }
+    
+    // 모든 머티리얼에 파라미터 설정
+    int32 MaterialCount = MeshComponent->GetNumMaterials();
+    for (int32 i = 0; i < MaterialCount; ++i)
+    {
+        UMaterialInstanceDynamic* DynamicMaterial = Cast<UMaterialInstanceDynamic>(MeshComponent->GetMaterial(i));
+        
+        // 동적 머티리얼이 아니라면 생성
+        if (!DynamicMaterial)
+        {
+            UMaterialInterface* BaseMaterial = MeshComponent->GetMaterial(i);
+            if (BaseMaterial)
+            {
+                DynamicMaterial = UMaterialInstanceDynamic::Create(BaseMaterial, MeshComponent);
+                if (DynamicMaterial)
+                {
+                    MeshComponent->SetMaterial(i, DynamicMaterial);
+                }
+                else
+                {
+                    continue;
+                }
+            }
+        }
+        
+        // 파라미터 설정
+        if (DynamicMaterial)
+        {
+            // 색상 파라미터
+            if (!ColorParamName.IsNone())
+            {
+                DynamicMaterial->SetVectorParameterValue(ColorParamName, DyeInfo.Color);
+            }
+            
+            // 메탈릭 파라미터
+            if (!MetallicParamName.IsNone())
+            {
+                DynamicMaterial->SetScalarParameterValue(MetallicParamName, DyeInfo.Metallic);
+            }
+            
+            // 광택 파라미터
+            if (!RoughnessParamName.IsNone())
+            {
+                DynamicMaterial->SetScalarParameterValue(RoughnessParamName, DyeInfo.Roughness);
             }
         }
     }

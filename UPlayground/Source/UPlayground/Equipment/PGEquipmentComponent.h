@@ -64,12 +64,38 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Equipment")
     FPGEquipmentStats CalculateTotalEquipmentStats() const;
 
-    /**
-     * 모든 장착 아이템 반환
-     * @return 장착된 아이템 맵
+/**
+     * 장비에 염색 적용
+     * @param Slot - 장비 슬롯
+     * @param Channel - 염색 채널
+     * @param DyeInfo - 염색 정보
+     * @return 염색 적용 성공 여부
      */
-    UFUNCTION(BlueprintCallable, Category = "Equipment")
-    const TMap<EPGEquipmentSlot, UPGEquipmentItem*>& GetAllEquippedItems() const { return EquippedItems; }
+    UFUNCTION(BlueprintCallable, Category = "Equipment|Dye")
+    bool ApplyDyeToEquipment(EPGEquipmentSlot Slot, EPGDyeChannel Channel, const FPGDyeInfo& DyeInfo);
+    
+    /**
+     * 장비의 염색 정보 가져오기
+     * @param Slot - 장비 슬롯
+     * @param Channel - 염색 채널
+     * @return 염색 정보
+     */
+    UFUNCTION(BlueprintCallable, Category = "Equipment|Dye")
+    FPGDyeInfo GetEquipmentDyeInfo(EPGEquipmentSlot Slot, EPGDyeChannel Channel) const;
+    
+    /**
+     * 장비가 염색 가능한지 확인
+     * @param Slot - 장비 슬롯
+     * @return 염색 가능 여부
+     */
+    UFUNCTION(BlueprintCallable, Category = "Equipment|Dye")
+    bool IsEquipmentDyeable(EPGEquipmentSlot Slot) const;
+    
+    /**
+     * 모든 장비 염색 초기화
+     */
+    UFUNCTION(BlueprintCallable, Category = "Equipment|Dye")
+    void ResetAllDyes();
 
 private:
     /**

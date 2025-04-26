@@ -1,6 +1,8 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "PGEquipmentComponent.h"
+
+#include "PGEquipmentVisualizerComponent.h"
 #include "../Characters/PGBaseCharacter.h"
 #include "../Items/PGInventoryComponent.h"
 
@@ -149,4 +151,91 @@ bool UPGEquipmentComponent::HandleWeaponSlotConflict(EPGEquipmentSlot NewSlot)
     }
 
     return true;
+}
+
+bool UPGEquipmentComponent::ApplyDyeToEquipment(EPGEquipmentSlot Slot, EPGDyeChannel Channel, const FPGDyeInfo& DyeInfo)
+{
+    // 해당 슬롯에 장비가 있는지 확인
+    if (!EquippedItems.Contains(Slot))
+    {
+        return false;
+    }
+    
+    // 장비 아이템 가져오기
+    UPGEquipmentItem* EquipmentItem = EquippedItems[Slot];
+    if (!EquipmentItem || !EquipmentItem->IsDyeable())
+    {
+        return false;
+    }
+    
+    // 시각화 컴포넌트 찾기
+    UPGEquipmentVisualizerComponent* VisualizerComp = GetOwner()->FindComponentByClass<UPGEquipmentVisualizerComponent>();
+    if (!VisualizerComp)
+    {
+        // 시각화 컴포넌트가 없으면 아이템에만 염색 적용
+        return EquipmentItem->ApplyDye(Channel, DyeInfo);
+    }
+    
+    // 시각화 컴포넌트를 통해 염색 적용
+    return VisualizerComp->ApplyDyeToEquipment(Slot, Channel, DyeInfo);
+}
+
+FPGDyeInfo UPGEquipmentComponent::GetEquipmentDyeInfo(EPGEquipmentSlot Slot, EPGDyeChannel Channel) const
+{
+    // 해당 슬롯에 장비가 있는지 확인
+    if (!EquippedItems.Contains(Slot))
+    {
+        return FPGDyeInfo();
+    }
+    
+    // 장비 아이템 가져오기
+    UPGEquipmentItem* EquipmentItem = EquippedItems[Slot];
+    if (!EquipmentItem)
+    {
+        return FPGDyeInfo();
+    }
+    
+    // 아이템에서 염색 정보 가져오기
+    return EquipmentItem->GetDyeInfo(Channel);
+}
+
+bool UPGEquipmentComponent::IsEquipmentDyeable(EPGEquipmentSlot Slot) const
+{
+    // 해당 슬롯에 장비가 있는지 확인
+    if (!EquippedItems.Contains(Slot))
+    {
+        return false;
+    }
+    
+    // 장비 아이템 가져오기
+    UPGEquipmentItem* EquipmentItem = EquippedItems[Slot];
+    if (!EquipmentItem)
+    {
+        return false;
+    }
+    
+    // 염색 가능 여부 확인
+    return EquipmentItem->IsDyeable();
+}
+
+void UPGEquipmentComponent::ResetAllDyes()
+{
+    // 시각화 컴포넌트 찾기
+    UPGEquipmentVisualizerComponent* VisualizerComp = GetOwner()->FindComponentByClass<UPGEquipmentVisualizerComponent>();
+    if (!VisualizerComp)
+    {
+        // 시각화 컴포넌트가 없으면 각 아이템의 염색만 초기화
+        for (auto& ItemPair : EquippedItems)
+        {
+            UPGEquipmentItem* Item = ItemPair.Value;
+            if (Item && Item->IsDyeable())
+            {
+                Item->ClearAllDyes();
+            }
+        }
+        return;
+    }
+    
+    // 시각화 컴포넌트를 통해 모든 염색 초기화
+    VisualizerComp->ResetAllDyes();
 }

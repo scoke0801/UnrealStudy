@@ -35,6 +35,36 @@ public:
      */
     virtual bool Use(AActor* Character) override;
 
+    /**
+     * 염색 적용 함수
+     * @param Channel - 염색할 채널
+     * @param DyeInfo - 적용할 염색 정보
+     * @return 염색 적용 성공 여부
+     */
+    UFUNCTION(BlueprintCallable, Category = "Equipment|Dye")
+    bool ApplyDye(EPGDyeChannel Channel, const FPGDyeInfo& DyeInfo);
+
+    /**
+     * 염색 정보 가져오기
+     * @param Channel - 조회할 염색 채널
+     * @return 염색 정보
+     */
+    UFUNCTION(BlueprintCallable, Category = "Equipment|Dye")
+    FPGDyeInfo GetDyeInfo(EPGDyeChannel Channel) const;
+
+    /**
+     * 염색 가능 여부 확인
+     * @return 염색 가능 여부
+     */
+    UFUNCTION(BlueprintCallable, Category = "Equipment|Dye")
+    bool IsDyeable() const;
+
+    /**
+     * 모든 염색 제거 (기본 색상으로 복원)
+     */
+    UFUNCTION(BlueprintCallable, Category = "Equipment|Dye")
+    void ClearAllDyes();
+
 public:
     // 장비 슬롯 정보
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment")
@@ -59,4 +89,30 @@ public:
     // 장비 착용 시 적용될 머티리얼
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment|Visual")
     TArray<TSoftObjectPtr<UMaterialInterface>> EquipmentMaterials;
+
+    // 염색 가능 여부
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment|Dye")
+    bool bCanBeDyed;
+
+    // 염색 가능한 채널 (장비마다 다를 수 있음)
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment|Dye", meta = (EditCondition = "bCanBeDyed"))
+    TArray<EPGDyeChannel> AvailableDyeChannels;
+
+    // 염색 색상 파라미터 이름 (머티리얼 파라미터 이름)
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment|Dye", meta = (EditCondition = "bCanBeDyed"))
+    TMap<EPGDyeChannel, FName> DyeParameterNames;
+
+    // 메탈릭 파라미터 이름
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment|Dye", meta = (EditCondition = "bCanBeDyed"))
+    TMap<EPGDyeChannel, FName> MetallicParameterNames;
+
+    // 광택 파라미터 이름
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment|Dye", meta = (EditCondition = "bCanBeDyed"))
+    TMap<EPGDyeChannel, FName> RoughnessParameterNames;
+
+protected:
+    // 각 채널별 염색 정보
+    UPROPERTY()
+    TMap<EPGDyeChannel, FPGDyeInfo> AppliedDyes;
 };
+
