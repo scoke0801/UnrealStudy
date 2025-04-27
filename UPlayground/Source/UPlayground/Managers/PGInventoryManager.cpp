@@ -1,6 +1,7 @@
 // Copyright (c) 2025. All Rights Reserved.
 
 #include "PGInventoryManager.h"
+#include "PGSaveGame.h"
 #include "GameFramework/SaveGame.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -194,5 +195,51 @@ bool UPGInventoryManager::LoadInventory()
 	Items.Add(FName("Potion_Health"), 5);
 	Items.Add(FName("Material_Wood"), 20);
 	
+	return true;
+}
+
+bool UPGInventoryManager::SaveData_Implementation(UPGSaveGame* SaveGame)
+{
+	if (!SaveGame)
+	{
+		return false;
+	}
+
+	// 인벤토리 아이템 데이터 저장
+	SaveGame->InventoryItems = Items;
+	
+	// 인벤토리 용량 저장
+	SaveGame->InventoryCapacity = MaxCapacity;
+	
+	// 장착 아이템 데이터는 플레이어 캐릭터의 장비 컴포넌트에서 가져와야 함
+	// 현재는 생략
+	
+	UE_LOG(LogTemp, Log, TEXT("[InventoryManager] 인벤토리 데이터 저장 완료"));
+	return true;
+}
+
+bool UPGInventoryManager::LoadData_Implementation(UPGSaveGame* SaveGame)
+{
+	if (!SaveGame)
+	{
+		return false;
+	}
+
+	// 인벤토리 아이템 데이터 로드
+	Items = SaveGame->InventoryItems;
+	
+	// 인벤토리 용량 로드
+	if (SaveGame->InventoryCapacity > 0)
+	{
+		SetMaxCapacity(SaveGame->InventoryCapacity);
+	}
+	
+	// 모든 아이템에 대해 변경 이벤트 브로드캐스트
+	for (const auto& Item : Items)
+	{
+		OnInventoryChanged.Broadcast(Item.Key, Item.Value, Item.Value);
+	}
+	
+	UE_LOG(LogTemp, Log, TEXT("[InventoryManager] 인벤토리 데이터 로드 완료"));
 	return true;
 }

@@ -3,6 +3,7 @@
 #include "PGQuestManager.h"
 #include "PGInventoryManager.h"
 #include "PGManagerSubsystem.h"
+#include "PGSaveGame.h"
 #include "GameFramework/SaveGame.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -566,6 +567,74 @@ bool UPGQuestManager::SetQuestStatus(FName QuestID, EPGQuestState NewState)
 	
 	UE_LOG(LogTemp, Log, TEXT("[QuestManager] 퀘스트 상태 변경: %s, %d -> %d"), 
 		*QuestID.ToString(), static_cast<int32>(OldState), static_cast<int32>(NewState));
+	
+	return true;
+}
+
+bool UPGQuestManager::SaveData_Implementation(UPGSaveGame* SaveGame)
+{
+	if (!SaveGame)
+	{
+		return false;
+	}
+
+	// 활성 퀘스트 데이터 저장
+	TMap<FName, FPGActiveQuest> ActiveQuestData;
+	for (const FName& QuestID : ActiveQuests)
+	{
+		if (FPGActiveQuest* QuestInfo = QuestData.Find(QuestID))
+		{
+			ActiveQuestData.Add(QuestID, *QuestInfo);
+		}
+	}
+	SaveGame->ActiveQuests = ActiveQuestData;
+	
+	// 완료된 퀘스트 목록 저장
+	SaveGame->CompletedQuests = CompletedQuests;
+	
+	// 실패한 퀘스트 목록 저장
+	SaveGame->FailedQuests = FailedQuests;
+	
+	UE_LOG(LogTemp, Log, TEXT("[QuestManager] 퀘스트 데이터 저장 완료 - 활성: %d, 완료: %d, 실패: %d"), 
+		ActiveQuests.Num(), CompletedQuests.Num(), FailedQuests.Num());
+	
+	return true;
+}
+
+bool UPGQuestManager::LoadData_Implementation(UPGSaveGame* SaveGame)
+{
+	if (!SaveGame)
+	{
+		return false;
+	}
+
+	// 기존 데이터 초기화
+	QuestData.Empty();
+	ActiveQuests.Empty();
+	CompletedQuests.Empty();
+	FailedQuests.Empty();
+	
+	// 활성 퀘스트 데이터 로드
+	QuestData = SaveGame->ActiveQuests;
+	for (const auto& Pair : SaveGame->ActiveQuests)
+	{
+		if (Pair.Value.State == EPGQuestState::Active)
+		{
+			ActiveQuests.Add(Pair.Key);
+		}
+	}
+	
+	// 완료된 퀘스트 목록 로드
+	CompletedQuests = SaveGame->CompletedQuests;
+	
+	// 실패한 퀘스트 목록 로드
+	FailedQuests = SaveGame->FailedQuests;
+	
+	// 완료/실패 퀘스트 데이터는 QuestData에 포함되어 있지 않을 수 있으므로
+	// 필요한 경우 별도로 추가하거나 다른 방식으로 처리 필요
+	
+	UE_LOG(LogTemp, Log, TEXT("[QuestManager] 퀘스트 데이터 로드 완료 - 활성: %d, 완료: %d, 실패: %d"), 
+		ActiveQuests.Num(), CompletedQuests.Num(), FailedQuests.Num());
 	
 	return true;
 }

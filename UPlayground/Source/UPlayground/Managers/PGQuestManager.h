@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "PGBaseManager.h"
 #include "PGQuestTypes.h"
+#include "PGSaveTypes.h"
 #include "PGQuestManager.generated.h"
 
 /**
@@ -12,7 +13,7 @@
  * 게임 내 퀘스트 상태 및 진행을 관리합니다.
  */
 UCLASS(Blueprintable)
-class UPLAYGROUND_API UPGQuestManager : public UPGBaseManager
+class UPLAYGROUND_API UPGQuestManager : public UPGBaseManager, public IPGSavableInterface
 {
 	GENERATED_BODY()
 
@@ -189,4 +190,9 @@ protected:
 	 * @return 상태 변경 성공 여부
 	 */
 	bool SetQuestStatus(FName QuestID, EPGQuestState NewStatus);
+
+	//~Begin IPGSavableInterface
+	virtual bool SaveData_Implementation(class UPGSaveGame* SaveGame) override;
+	virtual bool LoadData_Implementation(class UPGSaveGame* SaveGame) override;
+	//~End IPGSavableInterface
 };

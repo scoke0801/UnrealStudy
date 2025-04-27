@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "PGBaseManager.h"
 #include "PGInventoryTypes.h"
+#include "PGSaveTypes.h"
 #include "PGInventoryManager.generated.h"
 
 /**
@@ -12,7 +13,7 @@
  * 플레이어의 인벤토리와 아이템 관리를 담당합니다.
  */
 UCLASS(Blueprintable)
-class UPLAYGROUND_API UPGInventoryManager : public UPGBaseManager
+class UPLAYGROUND_API UPGInventoryManager : public UPGBaseManager, public IPGSavableInterface
 {
 	GENERATED_BODY()
 
@@ -103,6 +104,11 @@ public:
 	 */
 	UPROPERTY(BlueprintAssignable, Category = "Inventory")
 	FOnPGCapacityChangedSignature OnCapacityChanged;
+
+	//~Begin IPGSavableInterface
+	virtual bool SaveData_Implementation(class UPGSaveGame* SaveGame) override;
+	virtual bool LoadData_Implementation(class UPGSaveGame* SaveGame) override;
+	//~End IPGSavableInterface
 
 protected:
 	/** 인벤토리 아이템 맵 (아이템 ID -> 수량) */

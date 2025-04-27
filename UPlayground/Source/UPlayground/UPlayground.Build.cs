@@ -26,14 +26,15 @@ public class UPlayground : ModuleRules
 			"GameplayTags",
             "DeveloperSettings",
 			"UMG",
-			"Niagara"
+			"Niagara",
+			"CommonUI" // CommonUI 모듈 추가
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { 
             "GameplayTasks", 
             "GameFeatures",
             "ModularGameplay"
-        });
+		});
 
 		// UI 시스템을 위한 Slate 및 SlateCore 의존성 추가
 		PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
